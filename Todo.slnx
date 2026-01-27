@@ -2,4 +2,10 @@
   <Folder Name="/api/">
     <Project Path="api/Todo.Api.csproj" />
   </Folder>
+  <Folder Name="/apphost/">
+    <Project Path="apphost/Todo.AppHost.csproj" />
+  </Folder>
+  <Folder Name="/servicedefaults/">
+    <Project Path="servicedefaults/Todo.ServiceDefaults.csproj" />
+  </Folder>
 </Solution>

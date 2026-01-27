@@ -1,6 +1,11 @@
-using System.Collections.Concurrent;
+using Microsoft.AspNetCore.OutputCaching;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.AddServiceDefaults();
+builder.AddNpgsqlDbContext<TodoDbContext>("tododb");
+builder.AddRedisOutputCache("cache");
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -14,46 +19,71 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
+    var retries = 5;
+    for (var i = 0; i < retries; i++)
+    {
+        try
+        {
+            db.Database.Migrate();
+            break;
+        }
+        catch (Exception) when (i < retries - 1)
+        {
+            await Task.Delay(2000);
+        }
+    }
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
+app.MapDefaultEndpoints();
 app.UseCors();
+app.UseOutputCache();
 
-var todos = new ConcurrentDictionary<int, TodoItem>();
-var nextId = 0;
+app.MapGet("/api/todos", async (TodoDbContext db) =>
+    await db.Todos.OrderBy(t => t.Id).ToListAsync())
+    .CacheOutput(p => p.Tag("todos"));
 
-app.MapGet("/api/todos", () => todos.Values.OrderBy(t => t.Id));
-
-app.MapPost("/api/todos", (CreateTodoRequest request) =>
+app.MapPost("/api/todos", async (CreateTodoRequest request, TodoDbContext db, IOutputCacheStore cache, CancellationToken ct) =>
 {
-    var id = Interlocked.Increment(ref nextId);
-    var todo = new TodoItem(id, request.Title, false);
-    todos[id] = todo;
-    return Results.Created($"/api/todos/{id}", todo);
+    var todo = new TodoItem { Title = request.Title };
+    db.Todos.Add(todo);
+    await db.SaveChangesAsync(ct);
+    await cache.EvictByTagAsync("todos", ct);
+    return Results.Created($"/api/todos/{todo.Id}", todo);
 });
 
-app.MapPut("/api/todos/{id}/toggle", (int id) =>
+app.MapPut("/api/todos/{id}/toggle", async (int id, TodoDbContext db, IOutputCacheStore cache, CancellationToken ct) =>
 {
-    if (!todos.TryGetValue(id, out var todo))
+    var todo = await db.Todos.FindAsync([id], ct);
+    if (todo is null)
         return Results.NotFound();
 
-    var toggled = todo with { IsCompleted = !todo.IsCompleted };
-    todos[id] = toggled;
-    return Results.Ok(toggled);
+    todo.IsCompleted = !todo.IsCompleted;
+    await db.SaveChangesAsync(ct);
+    await cache.EvictByTagAsync("todos", ct);
+    return Results.Ok(todo);
 });
 
-app.MapDelete("/api/todos/{id}", (int id) =>
+app.MapDelete("/api/todos/{id}", async (int id, TodoDbContext db, IOutputCacheStore cache, CancellationToken ct) =>
 {
-    if (!todos.TryRemove(id, out _))
+    var todo = await db.Todos.FindAsync([id], ct);
+    if (todo is null)
         return Results.NotFound();
 
+    db.Todos.Remove(todo);
+    await db.SaveChangesAsync(ct);
+    await cache.EvictByTagAsync("todos", ct);
     return Results.NoContent();
 });
 
 app.Run();
 
-record TodoItem(int Id, string Title, bool IsCompleted);
 record CreateTodoRequest(string Title);

@@ -10,7 +10,15 @@
       "Bash(dotnet sln:*)",
       "Bash(npm start)",
       "Bash(curl:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nInitial commit: Todo app with .NET API and Angular 21 UI\n\nFix zoneless change detection issue by using signals for reactive state.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)",
+      "WebSearch",
+      "WebFetch(domain:aspire.dev)",
+      "Bash(dotnet tool list:*)",
+      "Bash(dotnet tool update:*)",
+      "Bash(export PATH=\"$PATH:/Users/aleksejspiscevs/.dotnet/tools\")",
+      "Bash(dotnet ef migrations add:*)"
     ]
   }
 }
