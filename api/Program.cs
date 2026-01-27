@@ -1,10 +1,16 @@
 using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.EntityFrameworkCore;
+using Todo.Api.GraphQL;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
-builder.AddNpgsqlDbContext<TodoDbContext>("tododb");
+var connectionString = builder.Configuration.GetConnectionString("tododb");
+builder.Services.AddDbContextPool<TodoDbContext>(options =>
+    options.UseNpgsql(connectionString));
+builder.Services.AddPooledDbContextFactory<TodoDbContext>(options =>
+    options.UseNpgsql(connectionString));
+builder.EnrichNpgsqlDbContext<TodoDbContext>();
 builder.AddRedisOutputCache("cache");
 
 builder.Services.AddEndpointsApiExplorer();
@@ -16,6 +22,22 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader()
               .AllowAnyMethod());
 });
+
+builder.Services
+    .AddGraphQLServer()
+    .AddQueryType<Query>()
+    .AddMutationType<Mutation>()
+    .AddProjections()
+    .AddFiltering()
+    .AddSorting()
+    .AddErrorFilter<ErrorFilter>()
+    .ModifyRequestOptions(options =>
+    {
+        options.IncludeExceptionDetails = builder.Environment.IsDevelopment();
+    })
+    // TODO: Upgrade HotChocolate to a version compatible with EF Core 10 pooled DbContext integration,
+    // so we can switch to DbContextKind.Pooled + ServiceKind.Pooled without ObjectPool resolution errors.
+    .RegisterDbContext<TodoDbContext>(DbContextKind.Synchronized);
 
 var app = builder.Build();
 
@@ -83,6 +105,8 @@ app.MapDelete("/api/todos/{id}", async (int id, TodoDbContext db, IOutputCacheSt
     await cache.EvictByTagAsync("todos", ct);
     return Results.NoContent();
 });
+
+app.MapGraphQL("/graphql");
 
 app.Run();
 

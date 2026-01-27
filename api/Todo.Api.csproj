@@ -15,6 +15,8 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.0" />
+    <PackageReference Include="HotChocolate.AspNetCore" Version="13.9.14" />
+    <PackageReference Include="HotChocolate.Data.EntityFramework" Version="13.9.14" />
   </ItemGroup>
 
   <ItemGroup>

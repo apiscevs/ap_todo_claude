@@ -1,0 +1,27 @@
+query GetTodos {
+  todos {
+    id
+    title
+    isCompleted
+  }
+}
+
+mutation CreateTodo($input: CreateTodoInput!) {
+  createTodo(input: $input) {
+    id
+    title
+    isCompleted
+  }
+}
+
+mutation ToggleTodo($id: Int!) {
+  toggleTodo(id: $id) {
+    id
+    title
+    isCompleted
+  }
+}
+
+mutation DeleteTodo($id: Int!) {
+  deleteTodo(id: $id)
+}
