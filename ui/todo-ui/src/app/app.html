@@ -1,0 +1,27 @@
+<h1>Todo List</h1>
+
+<div class="add-form">
+  <input
+    type="text"
+    [(ngModel)]="newTitle"
+    placeholder="What needs to be done?"
+    (keyup.enter)="add()"
+  />
+  <button (click)="add()">Add</button>
+</div>
+
+<ul class="todo-list">
+  @for (todo of todos(); track todo.id) {
+    <li [class.completed]="todo.isCompleted">
+      <input
+        type="checkbox"
+        [checked]="todo.isCompleted"
+        (change)="toggle(todo.id)"
+      />
+      <span>{{ todo.title }}</span>
+      <button class="delete" (click)="delete(todo.id)">Delete</button>
+    </li>
+  } @empty {
+    <li class="empty">No todos yet. Add one above!</li>
+  }
+</ul>

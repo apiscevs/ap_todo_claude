@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:github.com)",
+      "Bash(dotnet add:*)",
+      "Bash(dotnet build:*)",
+      "Bash(npx @angular/cli:*)",
+      "Bash(npx ng build)",
+      "Bash(dotnet new:*)",
+      "Bash(dotnet sln:*)",
+      "Bash(npm start)",
+      "Bash(curl:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}

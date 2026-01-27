@@ -1,0 +1,63 @@
+:host {
+  display: block;
+  max-width: 500px;
+  margin: 2rem auto;
+  font-family: sans-serif;
+}
+
+h1 {
+  text-align: center;
+}
+
+.add-form {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+
+  input {
+    flex: 1;
+    padding: 0.5rem;
+    font-size: 1rem;
+  }
+
+  button {
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+}
+
+.todo-list {
+  list-style: none;
+  padding: 0;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #eee;
+
+    &.completed span {
+      text-decoration: line-through;
+      color: #999;
+    }
+
+    span {
+      flex: 1;
+    }
+
+    .delete {
+      background: none;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      cursor: pointer;
+      color: #c00;
+    }
+
+    &.empty {
+      color: #999;
+      justify-content: center;
+    }
+  }
+}
