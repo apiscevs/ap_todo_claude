@@ -1,4 +1,16 @@
-<h1>Todo List</h1>
+@if (errorMessage()) {
+  <div class="toast">{{ errorMessage() }}</div>
+}
+
+<header class="header">
+  <div class="header-text">
+    <h1>Todos</h1>
+    <p>Stay organized, one task at a time</p>
+  </div>
+  <button class="theme-toggle" (click)="toggleDarkMode()" aria-label="Toggle dark mode">
+    {{ darkMode() ? '&#9788;' : '&#9789;' }}
+  </button>
+</header>
 
 <div class="add-form">
   <input
@@ -6,22 +18,49 @@
     [(ngModel)]="newTitle"
     placeholder="What needs to be done?"
     (keyup.enter)="add()"
+    aria-label="New todo title"
   />
-  <button (click)="add()">Add</button>
+  <button class="btn-primary" (click)="add()" [disabled]="!newTitle.trim()">Add</button>
 </div>
 
+<nav class="filters" aria-label="Filter todos">
+  @for (f of ['all', 'active', 'completed']; track f) {
+    <button
+      class="filter-btn"
+      [class.active]="filter() === f"
+      (click)="setFilter($any(f))"
+    >{{ f | titlecase }}</button>
+  }
+</nav>
+
 <ul class="todo-list">
-  @for (todo of todos(); track todo.id) {
-    <li [class.completed]="todo.isCompleted">
-      <input
-        type="checkbox"
-        [checked]="todo.isCompleted"
-        (change)="toggle(todo.id)"
-      />
-      <span>{{ todo.title }}</span>
-      <button class="delete" (click)="delete(todo.id)">Delete</button>
+  @for (todo of filteredTodos(); track todo.id) {
+    <li class="todo-item" [class.completed]="todo.isCompleted">
+      <label class="todo-checkbox">
+        <input
+          type="checkbox"
+          [checked]="todo.isCompleted"
+          (change)="toggle(todo.id)"
+        />
+        <span class="checkmark"></span>
+      </label>
+      <span class="todo-title">{{ todo.title }}</span>
+      <button class="btn-delete" (click)="deleteTodo(todo.id)" aria-label="Delete todo">
+        &times;
+      </button>
     </li>
   } @empty {
-    <li class="empty">No todos yet. Add one above!</li>
+    <li class="empty-state">
+      @if (filter() === 'all') {
+        <span class="empty-icon">&#9744;</span>
+        <span>No todos yet. Add one above!</span>
+      } @else if (filter() === 'active') {
+        <span class="empty-icon">&#10003;</span>
+        <span>All caught up! No active todos.</span>
+      } @else {
+        <span class="empty-icon">&#9744;</span>
+        <span>No completed todos yet.</span>
+      }
+    </li>
   }
 </ul>
