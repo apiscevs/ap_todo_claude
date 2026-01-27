@@ -1,6 +1,7 @@
 # .NET
 bin/
 obj/
+**/bin\\Debug/
 *.user
 *.suo
 *.vs/
