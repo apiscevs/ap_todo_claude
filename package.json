@@ -1,0 +1,7 @@
+{
+  "name": "todo-tests",
+  "private": true,
+  "devDependencies": {
+    "@playwright/test": "^1.40.0"
+  }
+}
