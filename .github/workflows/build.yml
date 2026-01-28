@@ -1,0 +1,40 @@
+name: build
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+          cache: npm
+          cache-dependency-path: ui/todo-ui/package-lock.json
+
+      - name: Restore .NET
+        run: dotnet restore Todo.slnx
+
+      - name: Build .NET
+        run: dotnet build Todo.slnx --configuration Release --no-restore
+
+      - name: Install UI deps
+        run: npm ci
+        working-directory: ui/todo-ui
+
+      - name: Build UI
+        run: npm run build
+        working-directory: ui/todo-ui
