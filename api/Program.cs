@@ -110,4 +110,7 @@ app.MapGraphQL("/graphql");
 
 app.Run();
 
-record CreateTodoRequest(string Title);
+public record CreateTodoRequest(string Title);
+
+// Make the implicit Program class accessible for integration tests
+public partial class Program { }

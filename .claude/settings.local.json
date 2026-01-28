@@ -18,7 +18,13 @@
       "Bash(dotnet tool list:*)",
       "Bash(dotnet tool update:*)",
       "Bash(export PATH=\"$PATH:/Users/aleksejspiscevs/.dotnet/tools\")",
-      "Bash(dotnet ef migrations add:*)"
+      "Bash(dotnet ef migrations add:*)",
+      "Bash(tree:*)",
+      "Bash(npm run build:*)",
+      "Bash(dotnet --version:*)",
+      "Bash(npm install:*)",
+      "Bash(npm view:*)",
+      "Bash(dotnet test:*)"
     ]
   }
 }

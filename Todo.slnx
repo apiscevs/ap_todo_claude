@@ -8,4 +8,8 @@
   <Folder Name="/servicedefaults/">
     <Project Path="servicedefaults/Todo.ServiceDefaults.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Todo.Api.IntegrationTests/Todo.Api.IntegrationTests.csproj" />
+    <Project Path="tests/Todo.Api.UnitTests/Todo.Api.UnitTests.csproj" />
+  </Folder>
 </Solution>
