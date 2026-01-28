@@ -31,6 +31,9 @@ jobs:
       - name: Build .NET
         run: dotnet build Todo.slnx --configuration Release --no-restore
 
+      - name: Test .NET
+        run: dotnet test Todo.slnx --configuration Release --no-build
+
       - name: Install UI deps
         run: npm ci
         working-directory: ui/todo-ui
@@ -38,3 +41,50 @@ jobs:
       - name: Build UI
         run: npm run build
         working-directory: ui/todo-ui
+
+      - name: Start database and cache
+        run: |
+          docker run -d --name todo-postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=tododb -p 5488:5432 postgres:17-alpine
+          docker run -d --name todo-redis -p 6379:6379 redis:7-alpine
+
+      - name: Start API
+        env:
+          ConnectionStrings__tododb: Host=localhost;Port=5488;Database=tododb;Username=postgres;Password=postgres
+          ConnectionStrings__cache: localhost:6379
+        run: |
+          dotnet run --project api --urls http://localhost:5181 &
+
+      - name: Start UI
+        run: |
+          npm start -- --host 0.0.0.0 --port 4200 &
+        working-directory: ui/todo-ui
+
+      - name: Wait for API
+        run: |
+          for i in {1..30}; do
+            if curl -sSf http://localhost:5181/health >/dev/null; then
+              echo "API ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "API not ready"
+          exit 1
+
+      - name: Wait for UI
+        run: |
+          for i in {1..30}; do
+            if curl -sSf http://localhost:4200 >/dev/null; then
+              echo "UI ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "UI not ready"
+          exit 1
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Run UI tests
+        run: BASE_URL=http://localhost:4200 npx playwright test
