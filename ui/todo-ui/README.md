@@ -38,7 +38,7 @@ This will compile your project and store the build artifacts in the `dist/` dire
 
 ## Running unit tests
 
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+To execute unit tests, use the following command:
 
 ```bash
 ng test
@@ -46,13 +46,17 @@ ng test
 
 ## Running end-to-end tests
 
-For end-to-end (e2e) testing, run:
+For end-to-end (e2e) testing with Playwright, run:
 
 ```bash
-ng e2e
+npm run test:e2e
 ```
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+You can override the target URL by setting `BASE_URL`, for example:
+
+```bash
+BASE_URL=http://localhost:4200 npm run test:e2e
+```
 
 ## Additional Resources
 

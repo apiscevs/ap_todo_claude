@@ -83,17 +83,16 @@ jobs:
           echo "UI not ready"
           exit 1
 
-      - name: Install Playwright deps
-        run: npm install
-
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+          key: ${{ runner.os }}-playwright-${{ hashFiles('ui/todo-ui/package-lock.json') }}
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
+        working-directory: ui/todo-ui
 
       - name: Run UI tests
         run: BASE_URL=http://localhost:4200 npx playwright test
+        working-directory: ui/todo-ui

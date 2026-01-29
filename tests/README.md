@@ -64,22 +64,6 @@ Tests for database operations and EF Core functionality:
 
 ## Running the Tests
 
-## UI E2E (Playwright)
-
-Prerequisites:
-- Backend and UI running (see root README)
-- `BASE_URL` set (e.g. `http://localhost:4200`)
-
-Run the Playwright todo smoke test:
-```bash
-BASE_URL=http://localhost:4200 npx playwright test tests/todo.spec.ts
-```
-
-Run all Playwright tests:
-```bash
-BASE_URL=http://localhost:4200 npx playwright test
-```
-
 ### Run All Tests
 ```bash
 dotnet test

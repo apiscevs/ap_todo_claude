@@ -38,7 +38,9 @@ test('create todo with Low priority', async ({ page }) => {
 
   const todoItem = page.getByRole('listitem').filter({ hasText: todoText });
   await expect(todoItem).toBeVisible();
-  await expect(todoItem.getByText('Low')).toBeVisible();
+  const lowBadge = todoItem.locator('.priority-badge[data-priority="low"]');
+  await expect(lowBadge).toBeVisible();
+  await expect(lowBadge).toHaveText('Low');
 
   // Clean up
   await todoItem.getByRole('button', { name: 'Delete todo' }).click();
@@ -57,7 +59,9 @@ test('create todo with Medium priority', async ({ page }) => {
 
   const todoItem = page.getByRole('listitem').filter({ hasText: todoText });
   await expect(todoItem).toBeVisible();
-  await expect(todoItem.getByText('Medium')).toBeVisible();
+  const mediumBadge = todoItem.locator('.priority-badge[data-priority="medium"]');
+  await expect(mediumBadge).toBeVisible();
+  await expect(mediumBadge).toHaveText('Medium');
 
   // Clean up
   await todoItem.getByRole('button', { name: 'Delete todo' }).click();
@@ -76,7 +80,9 @@ test('create todo with High priority', async ({ page }) => {
 
   const todoItem = page.getByRole('listitem').filter({ hasText: todoText });
   await expect(todoItem).toBeVisible();
-  await expect(todoItem.getByText('High')).toBeVisible();
+  const highBadge = todoItem.locator('.priority-badge[data-priority="high"]');
+  await expect(highBadge).toBeVisible();
+  await expect(highBadge).toHaveText('High');
 
   // Clean up
   await todoItem.getByRole('button', { name: 'Delete todo' }).click();
@@ -117,29 +123,32 @@ test('priority badges have correct colors', async ({ page }) => {
   await page.getByRole('textbox', { name: 'New todo title' }).fill(lowTodo);
   await page.getByRole('radio', { name: 'Low' }).click();
   await page.getByRole('button', { name: 'Add' }).click();
+  const lowItem = page.getByRole('listitem').filter({ hasText: lowTodo });
+  await expect(lowItem).toBeVisible();
 
   // Create Medium priority todo
   await page.getByRole('textbox', { name: 'New todo title' }).fill(mediumTodo);
   await page.getByRole('radio', { name: 'Medium' }).click();
   await page.getByRole('button', { name: 'Add' }).click();
+  const mediumItem = page.getByRole('listitem').filter({ hasText: mediumTodo });
+  await expect(mediumItem).toBeVisible();
 
   // Create High priority todo
   await page.getByRole('textbox', { name: 'New todo title' }).fill(highTodo);
   await page.getByRole('radio', { name: 'High' }).click();
   await page.getByRole('button', { name: 'Add' }).click();
+  const highItem = page.getByRole('listitem').filter({ hasText: highTodo });
+  await expect(highItem).toBeVisible();
 
   // Verify badges exist and have correct data attributes
-  const lowItem = page.getByRole('listitem').filter({ hasText: lowTodo });
   const lowBadge = lowItem.locator('.priority-badge[data-priority="low"]');
   await expect(lowBadge).toBeVisible();
   await expect(lowBadge).toHaveText('Low');
 
-  const mediumItem = page.getByRole('listitem').filter({ hasText: mediumTodo });
   const mediumBadge = mediumItem.locator('.priority-badge[data-priority="medium"]');
   await expect(mediumBadge).toBeVisible();
   await expect(mediumBadge).toHaveText('Medium');
 
-  const highItem = page.getByRole('listitem').filter({ hasText: highTodo });
   const highBadge = highItem.locator('.priority-badge[data-priority="high"]');
   await expect(highBadge).toBeVisible();
   await expect(highBadge).toHaveText('High');

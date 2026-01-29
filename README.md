@@ -45,6 +45,19 @@ npm start
 
 The UI runs at **http://localhost:4200** and proxies `/api` requests to the .NET backend.
 
+### End-to-end tests (Playwright)
+
+```bash
+cd ui/todo-ui
+npm run test:e2e
+```
+
+You can override the target URL by setting `BASE_URL`, for example:
+
+```bash
+BASE_URL=http://localhost:4200 npm run test:e2e
+```
+
 ## API Endpoints
 
 | Method | URL                      | Description       |
