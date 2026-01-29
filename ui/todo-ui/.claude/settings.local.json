@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(claude doctor)",
+      "Bash(python3:*)",
+      "Bash(claude mcp:*)"
+    ]
+  }
+}
