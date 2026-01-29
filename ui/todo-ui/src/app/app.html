@@ -21,6 +21,13 @@
     (keyup.enter)="add()"
     aria-label="New todo title"
   />
+  <textarea
+    rows="3"
+    [ngModel]="newDescription()"
+    (ngModelChange)="newDescription.set($event)"
+    placeholder="Add a short description (optional)"
+    aria-label="New todo description"
+  ></textarea>
   <div class="priority-selector" role="group" aria-label="Select priority">
     @for (p of PRIORITIES; track p) {
       <label class="priority-option">
@@ -59,7 +66,12 @@
         />
         <span class="checkmark"></span>
       </label>
-      <span class="todo-title">{{ todo.title }}</span>
+      <div class="todo-content">
+        <span class="todo-title">{{ todo.title }}</span>
+        @if (todo.description) {
+          <span class="todo-description">{{ todo.description }}</span>
+        }
+      </div>
       <span class="priority-badge" [attr.data-priority]="todo.priority.toLowerCase()">
         {{ getPriorityLabel(todo.priority) }}
       </span>

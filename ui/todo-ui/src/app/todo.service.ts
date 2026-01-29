@@ -25,6 +25,7 @@ export class TodoService {
           return todos.map(t => ({
             id: t.id,
             title: t.title,
+            description: t.description ?? '',
             isCompleted: t.isCompleted,
             priority: t.priority as Priority
           })) as Todo[];
@@ -32,9 +33,13 @@ export class TodoService {
       );
   }
 
-  create(title: string, priority: Priority) {
+  create(title: string, priority: Priority, description?: string) {
     // TODO: Remove 'as any' after codegen generates proper CreateTodoInput type
-    const input: CreateTodoInput = { title, priority: priority as any };
+    const input: CreateTodoInput = {
+      title,
+      priority: priority as any,
+      description: description ?? ''
+    };
     return this.createTodoGQL
       .mutate({
         variables: { input },
@@ -48,6 +53,7 @@ export class TodoService {
           return {
             id: todo.id,
             title: todo.title,
+            description: todo.description ?? '',
             isCompleted: todo.isCompleted,
             priority: todo.priority as Priority
           } as Todo;
@@ -66,6 +72,7 @@ export class TodoService {
             __typename: 'TodoItem',
             id,
             title: '',
+            description: '',
             isCompleted: true,
             priority: 'MEDIUM' as any
           }
@@ -79,6 +86,7 @@ export class TodoService {
           return {
             id: todo.id,
             title: todo.title,
+            description: todo.description ?? '',
             isCompleted: todo.isCompleted,
             priority: todo.priority as Priority
           } as Todo;

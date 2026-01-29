@@ -21,6 +21,7 @@ export class App implements OnInit {
 
   todos = signal<Todo[]>([]);
   newTitle = signal('');
+  newDescription = signal('');
   newPriority = signal<Priority>('MEDIUM');
   filter = signal<Filter>('all');
   errorMessage = signal('');
@@ -65,9 +66,11 @@ export class App implements OnInit {
   add() {
     const title = this.newTitle().trim();
     if (!title) return;
-    this.todoService.create(title, this.newPriority()).subscribe({
+    const description = this.newDescription().trim();
+    this.todoService.create(title, this.newPriority(), description).subscribe({
       next: () => {
         this.newTitle.set('');
+        this.newDescription.set('');
         this.newPriority.set('MEDIUM');
         this.load();
       },

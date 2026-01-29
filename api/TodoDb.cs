@@ -25,6 +25,11 @@ public class TodoDbContext(DbContextOptions<TodoDbContext> options) : DbContext(
             .Property(t => t.Priority)
             .HasConversion<int>()  // Store as integer for correct ordering
             .HasDefaultValue(TodoPriority.Medium);
+
+        modelBuilder.Entity<TodoItem>()
+            .Property(t => t.Description)
+            .HasMaxLength(1000)
+            .HasDefaultValue("");
     }
 }
 
@@ -34,4 +39,5 @@ public class TodoItem
     public required string Title { get; set; }
     public bool IsCompleted { get; set; }
     public TodoPriority Priority { get; set; } = TodoPriority.Medium;
+    public string? Description { get; set; }
 }
