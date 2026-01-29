@@ -12,85 +12,287 @@
   </button>
 </header>
 
-<div class="add-form">
-  <input
-    type="text"
-    [ngModel]="newTitle()"
-    (ngModelChange)="newTitle.set($event)"
-    placeholder="What needs to be done?"
-    (keyup.enter)="add()"
-    aria-label="New todo title"
-  />
-  <textarea
-    rows="3"
-    [ngModel]="newDescription()"
-    (ngModelChange)="newDescription.set($event)"
-    placeholder="Add a short description (optional)"
-    aria-label="New todo description"
-  ></textarea>
-  <div class="priority-selector" role="group" aria-label="Select priority">
-    @for (p of PRIORITIES; track p) {
-      <label class="priority-option">
-        <input
-          type="radio"
-          name="priority"
-          [value]="p"
-          [(ngModel)]="newPriority"
-          [attr.aria-label]="'Priority: ' + getPriorityLabel(p)"
-        />
-        <span class="priority-label">{{ getPriorityLabel(p) }}</span>
-      </label>
-    }
-  </div>
-  <button class="btn-primary" (click)="add()" [disabled]="!newTitle().trim()">Add</button>
-</div>
-
-<nav class="filters" aria-label="Filter todos">
-  @for (f of ['all', 'active', 'completed']; track f) {
-    <button
-      class="filter-btn"
-      [class.active]="filter() === f"
-      (click)="setFilter($any(f))"
-    >{{ f | titlecase }}</button>
-  }
+<nav class="tabs" aria-label="Primary navigation">
+  <button class="tab-btn" [class.active]="activeTab() === 'todos'" (click)="setTab('todos')">
+    Todos
+  </button>
+  <button class="tab-btn" [class.active]="activeTab() === 'calendar'" (click)="setTab('calendar')">
+    Calendar
+  </button>
 </nav>
 
-<ul class="todo-list">
-  @for (todo of filteredTodos(); track todo.id) {
-    <li class="todo-item" [class.completed]="todo.isCompleted">
-      <label class="todo-checkbox">
+@if (activeTab() === 'todos') {
+  <div class="add-form">
+    <input
+      type="text"
+      [ngModel]="newTitle()"
+      (ngModelChange)="newTitle.set($event)"
+      placeholder="What needs to be done?"
+      (keyup.enter)="add()"
+      aria-label="New todo title"
+    />
+    <textarea
+      rows="3"
+      [ngModel]="newDescription()"
+      (ngModelChange)="newDescription.set($event)"
+      placeholder="Add a short description (optional)"
+      aria-label="New todo description"
+    ></textarea>
+    <div class="datetime-range">
+      <div class="datetime-field">
+        <label>Start</label>
         <input
-          type="checkbox"
-          [checked]="todo.isCompleted"
-          (change)="toggle(todo.id)"
+          type="datetime-local"
+          [ngModel]="newStartAt()"
+          (ngModelChange)="newStartAt.set($event)"
         />
-        <span class="checkmark"></span>
-      </label>
-      <div class="todo-content">
-        <span class="todo-title">{{ todo.title }}</span>
-        @if (todo.description) {
-          <span class="todo-description">{{ todo.description }}</span>
+      </div>
+      <div class="datetime-field">
+        <label>End</label>
+        <input
+          type="datetime-local"
+          [ngModel]="newEndAt()"
+          (ngModelChange)="newEndAt.set($event)"
+        />
+      </div>
+    </div>
+    <p class="datetime-hint">Leave both empty to keep this todo unscheduled.</p>
+    <div class="priority-selector" role="group" aria-label="Select priority">
+      @for (p of PRIORITIES; track p) {
+        <label class="priority-option">
+          <input
+            type="radio"
+            name="priority"
+            [value]="p"
+            [(ngModel)]="newPriority"
+            [attr.aria-label]="'Priority: ' + getPriorityLabel(p)"
+          />
+          <span class="priority-label">{{ getPriorityLabel(p) }}</span>
+        </label>
+      }
+    </div>
+    <button class="btn-primary" (click)="add()" [disabled]="!newTitle().trim()">Add</button>
+  </div>
+
+  <nav class="filters" aria-label="Filter todos">
+    @for (f of ['all', 'active', 'completed']; track f) {
+      <button
+        class="filter-btn"
+        [class.active]="filter() === f"
+        (click)="setFilter($any(f))"
+      >{{ f | titlecase }}</button>
+    }
+  </nav>
+
+  <ul class="todo-list">
+    @for (todo of filteredTodos(); track todo.id) {
+      <li class="todo-item" [class.completed]="todo.isCompleted" [class.editing]="editingId() === todo.id">
+        @if (editingId() === todo.id) {
+          <div class="todo-edit">
+            <div class="todo-edit-row">
+              <input
+                type="text"
+                [ngModel]="editTitle()"
+                (ngModelChange)="editTitle.set($event)"
+                aria-label="Edit todo title"
+              />
+              <label class="edit-toggle">
+                <input
+                  type="checkbox"
+                  [checked]="editIsCompleted()"
+                  (change)="editIsCompleted.set($any($event.target).checked)"
+                />
+                <span>Completed</span>
+              </label>
+            </div>
+            <textarea
+              rows="2"
+              [ngModel]="editDescription()"
+              (ngModelChange)="editDescription.set($event)"
+              aria-label="Edit todo description"
+            ></textarea>
+            <div class="todo-edit-row">
+              <label>
+                Priority
+                <select [ngModel]="editPriority()" (ngModelChange)="editPriority.set($event)">
+                  @for (p of PRIORITIES; track p) {
+                    <option [value]="p">{{ getPriorityLabel(p) }}</option>
+                  }
+                </select>
+              </label>
+              <label>
+                Start
+                <input
+                  type="datetime-local"
+                  [ngModel]="editStartAt()"
+                  (ngModelChange)="editStartAt.set($event)"
+                />
+              </label>
+              <label>
+                End
+                <input
+                  type="datetime-local"
+                  [ngModel]="editEndAt()"
+                  (ngModelChange)="editEndAt.set($event)"
+                />
+              </label>
+            </div>
+            <div class="todo-edit-actions">
+              <button class="btn-secondary" (click)="cancelEdit()">Cancel</button>
+              <button class="btn-primary" (click)="saveEdit()">Save</button>
+            </div>
+          </div>
+        } @else {
+          <label class="todo-checkbox">
+            <input
+              type="checkbox"
+              [checked]="todo.isCompleted"
+              (change)="toggle(todo.id)"
+            />
+            <span class="checkmark"></span>
+          </label>
+          <div class="todo-content">
+            <span class="todo-title">{{ todo.title }}</span>
+            @if (todo.description) {
+              <span class="todo-description">{{ todo.description }}</span>
+            }
+            @if (todo.startAtUtc && todo.endAtUtc) {
+              <span class="todo-time">{{ getTodoDateLabel(todo) }} · {{ getTodoTimeRange(todo) }}</span>
+            }
+          </div>
+          <span class="priority-badge" [attr.data-priority]="todo.priority.toLowerCase()">
+            {{ getPriorityLabel(todo.priority) }}
+          </span>
+          <button class="btn-edit" (click)="startEdit(todo)" aria-label="Edit todo">Edit</button>
+          <button class="btn-delete" (click)="deleteTodo(todo.id)" aria-label="Delete todo">
+            &times;
+          </button>
+        }
+      </li>
+    } @empty {
+      <li class="empty-state">
+        @if (filter() === 'all') {
+          <span class="empty-icon">&#9744;</span>
+          <span>No todos yet. Add one above!</span>
+        } @else if (filter() === 'active') {
+          <span class="empty-icon">&#10003;</span>
+          <span>All caught up! No active todos.</span>
+        } @else {
+          <span class="empty-icon">&#9744;</span>
+          <span>No completed todos yet.</span>
+        }
+      </li>
+    }
+  </ul>
+} @else {
+  <section class="calendar">
+    <div class="calendar-top">
+      <div class="calendar-title">
+        <div class="calendar-controls">
+          <button class="nav-btn" (click)="calendarView() === 'month' ? changeMonth(-1) : calendarView() === 'week' ? changeWeek(-1) : changeDay(-1)">
+            &#8249;
+          </button>
+          <button class="nav-btn" (click)="goToToday()">Today</button>
+          <button class="nav-btn" (click)="calendarView() === 'month' ? changeMonth(1) : calendarView() === 'week' ? changeWeek(1) : changeDay(1)">
+            &#8250;
+          </button>
+          <span>{{ getCalendarTitle() }}</span>
+        </div>
+        <div class="calendar-view-switch">
+          <button class="pill" [class.active]="calendarView() === 'day'" (click)="setCalendarView('day')">Day</button>
+          <button class="pill" [class.active]="calendarView() === 'week'" (click)="setCalendarView('week')">Week</button>
+          <button class="pill" [class.active]="calendarView() === 'month'" (click)="setCalendarView('month')">Month</button>
+        </div>
+      </div>
+      <div class="calendar-meta">
+        <div class="calendar-selects">
+          <select [ngModel]="getMonthIndex()" (ngModelChange)="setMonth($event)">
+            @for (month of MONTHS; track month; let i = $index) {
+              <option [value]="i">{{ month }}</option>
+            }
+          </select>
+          <select [ngModel]="getYear()" (ngModelChange)="setYear($event)">
+            @for (year of getYearOptions(); track year) {
+              <option [value]="year">{{ year }}</option>
+            }
+          </select>
+        </div>
+        @if (unscheduledCount() > 0) {
+          <button class="unscheduled-card" (click)="setTab('todos')">
+            Unscheduled todos ({{ unscheduledCount() }})
+          </button>
         }
       </div>
-      <span class="priority-badge" [attr.data-priority]="todo.priority.toLowerCase()">
-        {{ getPriorityLabel(todo.priority) }}
-      </span>
-      <button class="btn-delete" (click)="deleteTodo(todo.id)" aria-label="Delete todo">
-        &times;
-      </button>
-    </li>
-  } @empty {
-    <li class="empty-state">
-      @if (filter() === 'all') {
-        <span class="empty-icon">&#9744;</span>
-        <span>No todos yet. Add one above!</span>
-      } @else if (filter() === 'active') {
-        <span class="empty-icon">&#10003;</span>
-        <span>All caught up! No active todos.</span>
-      } @else {
-        <span class="empty-icon">&#9744;</span>
-        <span>No completed todos yet.</span>
-      }
-    </li>
-  }
-</ul>
+    </div>
+
+    @if (calendarView() === 'month') {
+      <div class="calendar-grid">
+        @for (weekday of WEEKDAYS; track weekday) {
+          <div class="calendar-weekday">{{ weekday }}</div>
+        }
+        @for (cell of monthCells(); track cell.date.toISOString()) {
+          <div
+            class="calendar-cell"
+            [class.is-other]="!cell.isCurrentMonth"
+            [class.is-today]="cell.isToday"
+            [class.is-selected]="cell.isSelected"
+            (click)="selectDay(cell.date)"
+          >
+            <span class="calendar-date">{{ cell.date.getDate() }}</span>
+            <div class="calendar-items">
+              @for (todo of cell.items.slice(0, 3); track todo.id) {
+                <div class="calendar-item">
+                  <span>{{ todo.title }}</span>
+                  <span class="calendar-item-time">{{ getTodoTimeRange(todo) }}</span>
+                </div>
+              }
+              @if (cell.items.length > 3) {
+                <div class="calendar-more">+{{ cell.items.length - 3 }} more</div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    } @else if (calendarView() === 'week') {
+      <div class="week-grid">
+        @for (day of weekDays(); track day.toISOString()) {
+          <div class="week-column">
+            <div class="week-header">
+              <span>{{ day | date:'EEE' }}</span>
+              <strong>{{ day.getDate() }}</strong>
+            </div>
+            <div class="week-items">
+              @for (todo of getWeekDayTodos(day); track todo.id) {
+                <div class="week-item">
+                  <span class="week-item-time">{{ getTodoTimeRange(todo) }}</span>
+                  <span class="week-item-title">{{ todo.title }}</span>
+                </div>
+              } @empty {
+                <span class="week-empty">No items</span>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    } @else {
+      <div class="day-view">
+        <div class="day-header">{{ calendarDate() | date:'fullDate' }}</div>
+        <div class="day-list">
+          @for (todo of dayTodos(); track todo.id) {
+            <div class="day-item">
+              <div class="day-item-time">{{ getTodoTimeRange(todo) }}</div>
+              <div class="day-item-body">
+                <strong>{{ todo.title }}</strong>
+                @if (todo.description) {
+                  <span>{{ todo.description }}</span>
+                }
+              </div>
+            </div>
+          } @empty {
+            <div class="day-empty">No scheduled todos for this day.</div>
+          }
+        </div>
+      </div>
+    }
+  </section>
+}

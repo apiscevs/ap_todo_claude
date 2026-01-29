@@ -81,7 +81,18 @@ app.MapGet("/api/todos", async (TodoDbContext db) =>
 
 app.MapPost("/api/todos", async (CreateTodoRequest request, TodoDbContext db, IOutputCacheStore cache, CancellationToken ct) =>
 {
-    var todo = new TodoItem { Title = request.Title, Priority = request.Priority };
+    var (startAtUtc, endAtUtc) = TodoSchedule.Normalize(request.StartAtUtc, request.EndAtUtc);
+    if (!TodoSchedule.TryValidate(startAtUtc, endAtUtc, out var error))
+        return Results.BadRequest(new { error });
+
+    var todo = new TodoItem
+    {
+        Title = request.Title,
+        Description = request.Description ?? string.Empty,
+        Priority = request.Priority,
+        StartAtUtc = startAtUtc,
+        EndAtUtc = endAtUtc
+    };
     db.Todos.Add(todo);
     await db.SaveChangesAsync(ct);
     await cache.EvictByTagAsync("todos", ct);
@@ -112,11 +123,46 @@ app.MapDelete("/api/todos/{id}", async (int id, TodoDbContext db, IOutputCacheSt
     return Results.NoContent();
 });
 
+app.MapPut("/api/todos/{id}", async (int id, UpdateTodoRequest request, TodoDbContext db, IOutputCacheStore cache, CancellationToken ct) =>
+{
+    var todo = await db.Todos.FindAsync([id], ct);
+    if (todo is null)
+        return Results.NotFound();
+
+    var (startAtUtc, endAtUtc) = TodoSchedule.Normalize(request.StartAtUtc, request.EndAtUtc);
+    if (!TodoSchedule.TryValidate(startAtUtc, endAtUtc, out var error))
+        return Results.BadRequest(new { error });
+
+    todo.Title = request.Title;
+    todo.Description = request.Description;
+    todo.IsCompleted = request.IsCompleted;
+    todo.Priority = request.Priority;
+    todo.StartAtUtc = startAtUtc;
+    todo.EndAtUtc = endAtUtc;
+
+    await db.SaveChangesAsync(ct);
+    await cache.EvictByTagAsync("todos", ct);
+    return Results.Ok(todo);
+});
+
 app.MapGraphQL("/graphql");
 
 app.Run();
 
-public record CreateTodoRequest(string Title, TodoPriority Priority = TodoPriority.Medium);
+public record CreateTodoRequest(
+    string Title,
+    TodoPriority Priority = TodoPriority.Medium,
+    string? Description = null,
+    DateTime? StartAtUtc = null,
+    DateTime? EndAtUtc = null);
+
+public record UpdateTodoRequest(
+    string Title,
+    bool IsCompleted,
+    TodoPriority Priority,
+    string? Description,
+    DateTime? StartAtUtc,
+    DateTime? EndAtUtc);
 
 // Make the implicit Program class accessible for integration tests
 public partial class Program { }

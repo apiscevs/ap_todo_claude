@@ -20,16 +20,27 @@ public class TodoDbContext(DbContextOptions<TodoDbContext> options) : DbContext(
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        var todo = modelBuilder.Entity<TodoItem>();
+
         // Medium is the default priority to balance between urgent and low-priority tasks
-        modelBuilder.Entity<TodoItem>()
-            .Property(t => t.Priority)
+        todo.Property(t => t.Priority)
             .HasConversion<int>()  // Store as integer for correct ordering
             .HasDefaultValue(TodoPriority.Medium);
 
-        modelBuilder.Entity<TodoItem>()
-            .Property(t => t.Description)
+        todo.Property(t => t.Description)
             .HasMaxLength(1000)
             .HasDefaultValue("");
+
+        todo.Property(t => t.StartAtUtc)
+            .HasColumnType("timestamp with time zone");
+
+        todo.Property(t => t.EndAtUtc)
+            .HasColumnType("timestamp with time zone");
+
+        todo.ToTable(t => t.HasCheckConstraint(
+            "CK_Todos_Schedule",
+            "(\"StartAtUtc\" IS NULL AND \"EndAtUtc\" IS NULL) OR " +
+            "(\"StartAtUtc\" IS NOT NULL AND \"EndAtUtc\" IS NOT NULL AND \"EndAtUtc\" >= \"StartAtUtc\")"));
     }
 }
 
@@ -40,4 +51,6 @@ public class TodoItem
     public bool IsCompleted { get; set; }
     public TodoPriority Priority { get; set; } = TodoPriority.Medium;
     public string? Description { get; set; }
+    public DateTime? StartAtUtc { get; set; }
+    public DateTime? EndAtUtc { get; set; }
 }

@@ -3,8 +3,10 @@ query GetTodos {
     id
     title
     isCompleted
-    priority,
+    priority
     description
+    startAtUtc
+    endAtUtc
   }
 }
 
@@ -13,8 +15,22 @@ mutation CreateTodo($input: CreateTodoInput!) {
     id
     title
     isCompleted
-    priority,
+    priority
     description
+    startAtUtc
+    endAtUtc
+  }
+}
+
+mutation UpdateTodo($id: Int!, $input: UpdateTodoInput!) {
+  updateTodo(id: $id, input: $input) {
+    id
+    title
+    isCompleted
+    priority
+    description
+    startAtUtc
+    endAtUtc
   }
 }
 
@@ -23,8 +39,10 @@ mutation ToggleTodo($id: Int!) {
     id
     title
     isCompleted
-    priority,
+    priority
     description
+    startAtUtc
+    endAtUtc
   }
 }
 

@@ -3,9 +3,11 @@ import { map } from 'rxjs/operators';
 import {
   GetTodosGQL,
   CreateTodoGQL,
+  UpdateTodoGQL,
   ToggleTodoGQL,
   DeleteTodoGQL,
-  CreateTodoInput
+  CreateTodoInput,
+  UpdateTodoInput
 } from './generated/graphql';
 import { Todo, Priority } from './todo.model';
 
@@ -13,6 +15,7 @@ import { Todo, Priority } from './todo.model';
 export class TodoService {
   private getTodosGQL = inject(GetTodosGQL);
   private createTodoGQL = inject(CreateTodoGQL);
+  private updateTodoGQL = inject(UpdateTodoGQL);
   private toggleTodoGQL = inject(ToggleTodoGQL);
   private deleteTodoGQL = inject(DeleteTodoGQL);
 
@@ -27,18 +30,22 @@ export class TodoService {
             title: t.title,
             description: t.description ?? '',
             isCompleted: t.isCompleted,
-            priority: t.priority as Priority
+            priority: t.priority as Priority,
+            startAtUtc: t.startAtUtc ?? null,
+            endAtUtc: t.endAtUtc ?? null
           })) as Todo[];
         })
       );
   }
 
-  create(title: string, priority: Priority, description?: string) {
+  create(title: string, priority: Priority, description?: string, startAtUtc?: string | null, endAtUtc?: string | null) {
     // TODO: Remove 'as any' after codegen generates proper CreateTodoInput type
     const input: CreateTodoInput = {
       title,
       priority: priority as any,
-      description: description ?? ''
+      description: description ?? '',
+      startAtUtc: startAtUtc ?? null,
+      endAtUtc: endAtUtc ?? null
     };
     return this.createTodoGQL
       .mutate({
@@ -55,7 +62,33 @@ export class TodoService {
             title: todo.title,
             description: todo.description ?? '',
             isCompleted: todo.isCompleted,
-            priority: todo.priority as Priority
+            priority: todo.priority as Priority,
+            startAtUtc: todo.startAtUtc ?? null,
+            endAtUtc: todo.endAtUtc ?? null
+          } as Todo;
+        })
+      );
+  }
+
+  update(id: number, input: UpdateTodoInput) {
+    return this.updateTodoGQL
+      .mutate({
+        variables: { id, input },
+        refetchQueries: ['GetTodos'],
+        awaitRefetchQueries: true
+      })
+      .pipe(
+        map(result => {
+          const todo = result.data?.updateTodo;
+          if (!todo) throw new Error('Failed to update todo');
+          return {
+            id: todo.id,
+            title: todo.title,
+            description: todo.description ?? '',
+            isCompleted: todo.isCompleted,
+            priority: todo.priority as Priority,
+            startAtUtc: todo.startAtUtc ?? null,
+            endAtUtc: todo.endAtUtc ?? null
           } as Todo;
         })
       );
@@ -74,7 +107,9 @@ export class TodoService {
             title: '',
             description: '',
             isCompleted: true,
-            priority: 'MEDIUM' as any
+            priority: 'MEDIUM' as any,
+            startAtUtc: null,
+            endAtUtc: null
           }
         },
         refetchQueries: ['GetTodos']
@@ -88,7 +123,9 @@ export class TodoService {
             title: todo.title,
             description: todo.description ?? '',
             isCompleted: todo.isCompleted,
-            priority: todo.priority as Priority
+            priority: todo.priority as Priority,
+            startAtUtc: todo.startAtUtc ?? null,
+            endAtUtc: todo.endAtUtc ?? null
           } as Todo;
         })
       );

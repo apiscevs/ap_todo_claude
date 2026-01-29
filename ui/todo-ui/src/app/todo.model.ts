@@ -6,4 +6,6 @@ export interface Todo {
   description?: string | null;
   isCompleted: boolean;
   priority: Priority;
+  startAtUtc?: string | null;
+  endAtUtc?: string | null;
 }

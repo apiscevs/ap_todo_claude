@@ -15,6 +15,8 @@ export type Scalars = {
   Boolean: { input: boolean; output: boolean; }
   Int: { input: number; output: number; }
   Float: { input: number; output: number; }
+  /** The `DateTime` scalar represents an ISO-8601 compliant date time type. */
+  DateTime: { input: string; output: string; }
 };
 
 export type BooleanOperationFilterInput = {
@@ -23,9 +25,26 @@ export type BooleanOperationFilterInput = {
 };
 
 export type CreateTodoInput = {
-  description: Scalars['String']['input'];
+  description?: InputMaybe<Scalars['String']['input']>;
+  endAtUtc?: InputMaybe<Scalars['DateTime']['input']>;
   priority?: TodoPriority;
+  startAtUtc?: InputMaybe<Scalars['DateTime']['input']>;
   title: Scalars['String']['input'];
+};
+
+export type DateTimeOperationFilterInput = {
+  eq?: InputMaybe<Scalars['DateTime']['input']>;
+  gt?: InputMaybe<Scalars['DateTime']['input']>;
+  gte?: InputMaybe<Scalars['DateTime']['input']>;
+  in?: InputMaybe<Array<InputMaybe<Scalars['DateTime']['input']>>>;
+  lt?: InputMaybe<Scalars['DateTime']['input']>;
+  lte?: InputMaybe<Scalars['DateTime']['input']>;
+  neq?: InputMaybe<Scalars['DateTime']['input']>;
+  ngt?: InputMaybe<Scalars['DateTime']['input']>;
+  ngte?: InputMaybe<Scalars['DateTime']['input']>;
+  nin?: InputMaybe<Array<InputMaybe<Scalars['DateTime']['input']>>>;
+  nlt?: InputMaybe<Scalars['DateTime']['input']>;
+  nlte?: InputMaybe<Scalars['DateTime']['input']>;
 };
 
 export type IntOperationFilterInput = {
@@ -48,6 +67,7 @@ export type Mutation = {
   createTodo: TodoItem;
   deleteTodo: Scalars['Boolean']['output'];
   toggleTodo: TodoItem;
+  updateTodo: TodoItem;
 };
 
 
@@ -63,6 +83,12 @@ export type MutationDeleteTodoArgs = {
 
 export type MutationToggleTodoArgs = {
   id: Scalars['Int']['input'];
+};
+
+
+export type MutationUpdateTodoArgs = {
+  id: Scalars['Int']['input'];
+  input: UpdateTodoInput;
 };
 
 export type Query = {
@@ -105,27 +131,33 @@ export type StringOperationFilterInput = {
 export type TodoItem = {
   __typename?: 'TodoItem';
   description?: Maybe<Scalars['String']['output']>;
+  endAtUtc?: Maybe<Scalars['DateTime']['output']>;
   id: Scalars['Int']['output'];
   isCompleted: Scalars['Boolean']['output'];
   priority: TodoPriority;
+  startAtUtc?: Maybe<Scalars['DateTime']['output']>;
   title: Scalars['String']['output'];
 };
 
 export type TodoItemFilterInput = {
   and?: InputMaybe<Array<TodoItemFilterInput>>;
   description?: InputMaybe<StringOperationFilterInput>;
+  endAtUtc?: InputMaybe<DateTimeOperationFilterInput>;
   id?: InputMaybe<IntOperationFilterInput>;
   isCompleted?: InputMaybe<BooleanOperationFilterInput>;
   or?: InputMaybe<Array<TodoItemFilterInput>>;
   priority?: InputMaybe<TodoPriorityOperationFilterInput>;
+  startAtUtc?: InputMaybe<DateTimeOperationFilterInput>;
   title?: InputMaybe<StringOperationFilterInput>;
 };
 
 export type TodoItemSortInput = {
   description?: InputMaybe<SortEnumType>;
+  endAtUtc?: InputMaybe<SortEnumType>;
   id?: InputMaybe<SortEnumType>;
   isCompleted?: InputMaybe<SortEnumType>;
   priority?: InputMaybe<SortEnumType>;
+  startAtUtc?: InputMaybe<SortEnumType>;
   title?: InputMaybe<SortEnumType>;
 };
 
@@ -142,24 +174,41 @@ export type TodoPriorityOperationFilterInput = {
   nin?: InputMaybe<Array<TodoPriority>>;
 };
 
+export type UpdateTodoInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  endAtUtc?: InputMaybe<Scalars['DateTime']['input']>;
+  isCompleted: Scalars['Boolean']['input'];
+  priority: TodoPriority;
+  startAtUtc?: InputMaybe<Scalars['DateTime']['input']>;
+  title: Scalars['String']['input'];
+};
+
 export type GetTodosQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type GetTodosQuery = { __typename?: 'Query', todos: Array<{ __typename?: 'TodoItem', id: number, title: string, isCompleted: boolean, priority: TodoPriority, description?: string | null }> };
+export type GetTodosQuery = { __typename?: 'Query', todos: Array<{ __typename?: 'TodoItem', id: number, title: string, isCompleted: boolean, priority: TodoPriority, description?: string | null, startAtUtc?: string | null, endAtUtc?: string | null }> };
 
 export type CreateTodoMutationVariables = Exact<{
   input: CreateTodoInput;
 }>;
 
 
-export type CreateTodoMutation = { __typename?: 'Mutation', createTodo: { __typename?: 'TodoItem', id: number, title: string, isCompleted: boolean, priority: TodoPriority, description?: string | null } };
+export type CreateTodoMutation = { __typename?: 'Mutation', createTodo: { __typename?: 'TodoItem', id: number, title: string, isCompleted: boolean, priority: TodoPriority, description?: string | null, startAtUtc?: string | null, endAtUtc?: string | null } };
+
+export type UpdateTodoMutationVariables = Exact<{
+  id: Scalars['Int']['input'];
+  input: UpdateTodoInput;
+}>;
+
+
+export type UpdateTodoMutation = { __typename?: 'Mutation', updateTodo: { __typename?: 'TodoItem', id: number, title: string, isCompleted: boolean, priority: TodoPriority, description?: string | null, startAtUtc?: string | null, endAtUtc?: string | null } };
 
 export type ToggleTodoMutationVariables = Exact<{
   id: Scalars['Int']['input'];
 }>;
 
 
-export type ToggleTodoMutation = { __typename?: 'Mutation', toggleTodo: { __typename?: 'TodoItem', id: number, title: string, isCompleted: boolean, priority: TodoPriority, description?: string | null } };
+export type ToggleTodoMutation = { __typename?: 'Mutation', toggleTodo: { __typename?: 'TodoItem', id: number, title: string, isCompleted: boolean, priority: TodoPriority, description?: string | null, startAtUtc?: string | null, endAtUtc?: string | null } };
 
 export type DeleteTodoMutationVariables = Exact<{
   id: Scalars['Int']['input'];
@@ -176,6 +225,8 @@ export const GetTodosDocument = gql`
     isCompleted
     priority
     description
+    startAtUtc
+    endAtUtc
   }
 }
     `;
@@ -198,6 +249,8 @@ export const CreateTodoDocument = gql`
     isCompleted
     priority
     description
+    startAtUtc
+    endAtUtc
   }
 }
     `;
@@ -212,6 +265,30 @@ export const CreateTodoDocument = gql`
       super(apollo);
     }
   }
+export const UpdateTodoDocument = gql`
+    mutation UpdateTodo($id: Int!, $input: UpdateTodoInput!) {
+  updateTodo(id: $id, input: $input) {
+    id
+    title
+    isCompleted
+    priority
+    description
+    startAtUtc
+    endAtUtc
+  }
+}
+    `;
+
+  @Injectable({
+    providedIn: 'root'
+  })
+  export class UpdateTodoGQL extends Apollo.Mutation<UpdateTodoMutation, UpdateTodoMutationVariables> {
+    document = UpdateTodoDocument;
+    
+    constructor(apollo: Apollo.Apollo) {
+      super(apollo);
+    }
+  }
 export const ToggleTodoDocument = gql`
     mutation ToggleTodo($id: Int!) {
   toggleTodo(id: $id) {
@@ -220,6 +297,8 @@ export const ToggleTodoDocument = gql`
     isCompleted
     priority
     description
+    startAtUtc
+    endAtUtc
   }
 }
     `;
