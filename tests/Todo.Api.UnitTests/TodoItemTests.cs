@@ -14,6 +14,7 @@ public class TodoItemTests
         todo.Id.Should().Be(0);
         todo.Title.Should().Be("Test Todo");
         todo.IsCompleted.Should().BeFalse();
+        todo.Priority.Should().Be(TodoPriority.Medium);
     }
 
     [Fact]
@@ -63,5 +64,31 @@ public class TodoItemTests
 
         // Assert
         todo.Title.Should().Be(title);
+    }
+
+    [Theory]
+    [InlineData(TodoPriority.Low)]
+    [InlineData(TodoPriority.Medium)]
+    [InlineData(TodoPriority.High)]
+    public void TodoItem_Should_Accept_Various_Priorities(TodoPriority priority)
+    {
+        // Arrange & Act
+        var todo = new TodoItem { Title = "Test Todo", Priority = priority };
+
+        // Assert
+        todo.Priority.Should().Be(priority);
+    }
+
+    [Fact]
+    public void TodoItem_Should_Allow_Setting_Priority()
+    {
+        // Arrange
+        var todo = new TodoItem { Title = "Test Todo", Priority = TodoPriority.Low };
+
+        // Act
+        todo.Priority = TodoPriority.High;
+
+        // Assert
+        todo.Priority.Should().Be(TodoPriority.High);
     }
 }

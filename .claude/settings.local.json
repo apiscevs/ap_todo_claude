@@ -24,7 +24,19 @@
       "Bash(dotnet --version:*)",
       "Bash(npm install:*)",
       "Bash(npm view:*)",
-      "Bash(dotnet test:*)"
+      "Bash(dotnet test:*)",
+      "Bash(npx:*)",
+      "Bash(node --version:*)",
+      "Bash(npm:*)",
+      "Bash(git config:*)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_fill_form",
+      "mcp__playwright__browser_click",
+      "Bash(dotnet ef migrations:*)",
+      "Bash(dotnet clean:*)",
+      "Bash(xargs:*)",
+      "Bash(dotnet ef database update:*)"
     ]
-  }
+  },
+  "enableAllProjectMcpServers": true
 }

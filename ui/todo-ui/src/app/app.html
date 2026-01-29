@@ -15,12 +15,27 @@
 <div class="add-form">
   <input
     type="text"
-    [(ngModel)]="newTitle"
+    [ngModel]="newTitle()"
+    (ngModelChange)="newTitle.set($event)"
     placeholder="What needs to be done?"
     (keyup.enter)="add()"
     aria-label="New todo title"
   />
-  <button class="btn-primary" (click)="add()" [disabled]="!newTitle.trim()">Add</button>
+  <div class="priority-selector" role="group" aria-label="Select priority">
+    @for (p of PRIORITIES; track p) {
+      <label class="priority-option">
+        <input
+          type="radio"
+          name="priority"
+          [value]="p"
+          [(ngModel)]="newPriority"
+          [attr.aria-label]="'Priority: ' + getPriorityLabel(p)"
+        />
+        <span class="priority-label">{{ getPriorityLabel(p) }}</span>
+      </label>
+    }
+  </div>
+  <button class="btn-primary" (click)="add()" [disabled]="!newTitle().trim()">Add</button>
 </div>
 
 <nav class="filters" aria-label="Filter todos">
@@ -45,6 +60,9 @@
         <span class="checkmark"></span>
       </label>
       <span class="todo-title">{{ todo.title }}</span>
+      <span class="priority-badge" [attr.data-priority]="todo.priority.toLowerCase()">
+        {{ getPriorityLabel(todo.priority) }}
+      </span>
       <button class="btn-delete" (click)="deleteTodo(todo.id)" aria-label="Delete todo">
         &times;
       </button>

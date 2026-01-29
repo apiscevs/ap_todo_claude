@@ -42,4 +42,40 @@ public class CreateTodoRequestTests
         request1.Should().Be(request2);
         request1.Should().NotBe(request3);
     }
+
+    [Fact]
+    public void CreateTodoRequest_Should_Default_Priority_To_Medium()
+    {
+        // Arrange & Act
+        var request = new CreateTodoRequest("Test Todo");
+
+        // Assert
+        request.Priority.Should().Be(TodoPriority.Medium);
+    }
+
+    [Theory]
+    [InlineData(TodoPriority.Low)]
+    [InlineData(TodoPriority.Medium)]
+    [InlineData(TodoPriority.High)]
+    public void CreateTodoRequest_Should_Accept_Various_Priorities(TodoPriority priority)
+    {
+        // Arrange & Act
+        var request = new CreateTodoRequest("Test Todo", priority);
+
+        // Assert
+        request.Priority.Should().Be(priority);
+    }
+
+    [Fact]
+    public void CreateTodoRequest_Should_Support_Record_Equality_With_Priority()
+    {
+        // Arrange
+        var request1 = new CreateTodoRequest("Test", TodoPriority.High);
+        var request2 = new CreateTodoRequest("Test", TodoPriority.High);
+        var request3 = new CreateTodoRequest("Test", TodoPriority.Low);
+
+        // Assert - Records have value equality
+        request1.Should().Be(request2);
+        request1.Should().NotBe(request3);
+    }
 }

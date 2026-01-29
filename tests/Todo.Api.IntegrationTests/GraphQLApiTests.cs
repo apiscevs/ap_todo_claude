@@ -44,8 +44,8 @@ public class GraphQLApiTests : IClassFixture<TodoApiFactory>
     {
         // Arrange
         await ClearDatabase();
-        await SeedTodo("First Todo");
-        await SeedTodo("Second Todo");
+        await SeedTodo("First Todo", TodoPriority.High);
+        await SeedTodo("Second Todo", TodoPriority.Low);
 
         var query = @"
             query {
@@ -53,6 +53,7 @@ public class GraphQLApiTests : IClassFixture<TodoApiFactory>
                     id
                     title
                     isCompleted
+                    priority
                 }
             }";
 
@@ -63,7 +64,9 @@ public class GraphQLApiTests : IClassFixture<TodoApiFactory>
         // Assert
         todos.GetArrayLength().Should().Be(2);
         todos[0].GetProperty("title").GetString().Should().Be("First Todo");
+        todos[0].GetProperty("priority").GetString().Should().Be("HIGH");
         todos[1].GetProperty("title").GetString().Should().Be("Second Todo");
+        todos[1].GetProperty("priority").GetString().Should().Be("LOW");
     }
 
     [Fact]
@@ -71,7 +74,7 @@ public class GraphQLApiTests : IClassFixture<TodoApiFactory>
     {
         // Arrange
         await ClearDatabase();
-        var todoId = await SeedTodo("Specific Todo");
+        var todoId = await SeedTodo("Specific Todo", TodoPriority.Medium);
 
         var query = $@"
             query {{
@@ -79,6 +82,7 @@ public class GraphQLApiTests : IClassFixture<TodoApiFactory>
                     id
                     title
                     isCompleted
+                    priority
                 }}
             }}";
 
@@ -90,6 +94,7 @@ public class GraphQLApiTests : IClassFixture<TodoApiFactory>
         todo.GetProperty("id").GetInt32().Should().Be(todoId);
         todo.GetProperty("title").GetString().Should().Be("Specific Todo");
         todo.GetProperty("isCompleted").GetBoolean().Should().BeFalse();
+        todo.GetProperty("priority").GetString().Should().Be("MEDIUM");
     }
 
     [Fact]
@@ -125,6 +130,7 @@ public class GraphQLApiTests : IClassFixture<TodoApiFactory>
                     id
                     title
                     isCompleted
+                    priority
                 }
             }";
 
@@ -136,6 +142,7 @@ public class GraphQLApiTests : IClassFixture<TodoApiFactory>
         todo.GetProperty("id").GetInt32().Should().BeGreaterThan(0);
         todo.GetProperty("title").GetString().Should().Be("GraphQL Todo");
         todo.GetProperty("isCompleted").GetBoolean().Should().BeFalse();
+        todo.GetProperty("priority").GetString().Should().Be("MEDIUM");
     }
 
     [Fact]
@@ -143,7 +150,7 @@ public class GraphQLApiTests : IClassFixture<TodoApiFactory>
     {
         // Arrange
         await ClearDatabase();
-        var todoId = await SeedTodo("Toggle Me");
+        var todoId = await SeedTodo("Toggle Me", TodoPriority.High);
 
         var mutation = $@"
             mutation {{
@@ -191,7 +198,7 @@ public class GraphQLApiTests : IClassFixture<TodoApiFactory>
     {
         // Arrange
         await ClearDatabase();
-        var todoId = await SeedTodo("Delete Me");
+        var todoId = await SeedTodo("Delete Me", TodoPriority.Low);
 
         var mutation = $@"
             mutation {{
@@ -241,7 +248,7 @@ public class GraphQLApiTests : IClassFixture<TodoApiFactory>
     {
         // Arrange
         await ClearDatabase();
-        await SeedTodo("Test Todo");
+        await SeedTodo("Test Todo", TodoPriority.Medium);
 
         var query = @"
             query {
@@ -259,6 +266,7 @@ public class GraphQLApiTests : IClassFixture<TodoApiFactory>
         todos[0].TryGetProperty("title", out _).Should().BeTrue();
         todos[0].TryGetProperty("id", out _).Should().BeFalse();
         todos[0].TryGetProperty("isCompleted", out _).Should().BeFalse();
+        todos[0].TryGetProperty("priority", out _).Should().BeFalse();
     }
 
     [Fact]
@@ -354,11 +362,83 @@ public class GraphQLApiTests : IClassFixture<TodoApiFactory>
         return JsonDocument.Parse(responseContent);
     }
 
-    private async Task<int> SeedTodo(string title)
+    [Theory]
+    [InlineData("LOW")]
+    [InlineData("MEDIUM")]
+    [InlineData("HIGH")]
+    public async Task Mutation_CreateTodo_Should_Accept_All_Priority_Levels(string priority)
+    {
+        // Arrange
+        await ClearDatabase();
+        var mutation = $@"
+            mutation {{
+                createTodo(input: {{ title: ""Priority Test"", priority: {priority} }}) {{
+                    id
+                    title
+                    priority
+                }}
+            }}";
+
+        // Act
+        var response = await ExecuteGraphQLQuery(mutation);
+        var todo = response.RootElement.GetProperty("data").GetProperty("createTodo");
+
+        // Assert
+        todo.GetProperty("id").GetInt32().Should().BeGreaterThan(0);
+        todo.GetProperty("priority").GetString().Should().Be(priority);
+    }
+
+    [Fact]
+    public async Task Mutation_CreateTodo_Without_Priority_Should_Default_To_MEDIUM()
+    {
+        // Arrange
+        await ClearDatabase();
+        var mutation = @"
+            mutation {
+                createTodo(input: { title: ""Default Priority Test"" }) {
+                    id
+                    title
+                    priority
+                }
+            }";
+
+        // Act
+        var response = await ExecuteGraphQLQuery(mutation);
+        var todo = response.RootElement.GetProperty("data").GetProperty("createTodo");
+
+        // Assert
+        todo.GetProperty("id").GetInt32().Should().BeGreaterThan(0);
+        todo.GetProperty("priority").GetString().Should().Be("MEDIUM");
+    }
+
+    [Fact]
+    public async Task Mutation_CreateTodo_With_Explicit_Priority_Should_Use_Specified_Priority()
+    {
+        // Arrange
+        await ClearDatabase();
+        var mutation = @"
+            mutation {
+                createTodo(input: { title: ""High Priority Task"", priority: HIGH }) {
+                    id
+                    title
+                    priority
+                }
+            }";
+
+        // Act
+        var response = await ExecuteGraphQLQuery(mutation);
+        var todo = response.RootElement.GetProperty("data").GetProperty("createTodo");
+
+        // Assert
+        todo.GetProperty("id").GetInt32().Should().BeGreaterThan(0);
+        todo.GetProperty("priority").GetString().Should().Be("HIGH");
+    }
+
+    private async Task<int> SeedTodo(string title, TodoPriority priority = TodoPriority.Medium)
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
-        var todo = new TodoItem { Title = title };
+        var todo = new TodoItem { Title = title, Priority = priority };
         db.Todos.Add(todo);
         await db.SaveChangesAsync();
         return todo.Id;

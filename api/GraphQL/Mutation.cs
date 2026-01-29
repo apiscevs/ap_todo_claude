@@ -12,7 +12,7 @@ public class Mutation
         [Service] IOutputCacheStore cache,
         CancellationToken ct)
     {
-        var todo = new TodoItem { Title = input.Title };
+        var todo = new TodoItem { Title = input.Title, Priority = input.Priority };
         db.Todos.Add(todo);
         await db.SaveChangesAsync(ct);
         await cache.EvictByTagAsync("todos", ct);
@@ -54,4 +54,4 @@ public class Mutation
     }
 }
 
-public record CreateTodoInput(string Title);
+public record CreateTodoInput(string Title, TodoPriority Priority = TodoPriority.Medium);

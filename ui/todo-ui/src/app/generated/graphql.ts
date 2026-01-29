@@ -23,6 +23,7 @@ export type BooleanOperationFilterInput = {
 };
 
 export type CreateTodoInput = {
+  priority?: TodoPriority;
   title: Scalars['String']['input'];
 };
 
@@ -104,6 +105,7 @@ export type TodoItem = {
   __typename?: 'TodoItem';
   id: Scalars['Int']['output'];
   isCompleted: Scalars['Boolean']['output'];
+  priority: TodoPriority;
   title: Scalars['String']['output'];
 };
 
@@ -112,33 +114,48 @@ export type TodoItemFilterInput = {
   id?: InputMaybe<IntOperationFilterInput>;
   isCompleted?: InputMaybe<BooleanOperationFilterInput>;
   or?: InputMaybe<Array<TodoItemFilterInput>>;
+  priority?: InputMaybe<TodoPriorityOperationFilterInput>;
   title?: InputMaybe<StringOperationFilterInput>;
 };
 
 export type TodoItemSortInput = {
   id?: InputMaybe<SortEnumType>;
   isCompleted?: InputMaybe<SortEnumType>;
+  priority?: InputMaybe<SortEnumType>;
   title?: InputMaybe<SortEnumType>;
+};
+
+export enum TodoPriority {
+  High = 'HIGH',
+  Low = 'LOW',
+  Medium = 'MEDIUM'
+}
+
+export type TodoPriorityOperationFilterInput = {
+  eq?: InputMaybe<TodoPriority>;
+  in?: InputMaybe<Array<TodoPriority>>;
+  neq?: InputMaybe<TodoPriority>;
+  nin?: InputMaybe<Array<TodoPriority>>;
 };
 
 export type GetTodosQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type GetTodosQuery = { __typename?: 'Query', todos: Array<{ __typename?: 'TodoItem', id: number, title: string, isCompleted: boolean }> };
+export type GetTodosQuery = { __typename?: 'Query', todos: Array<{ __typename?: 'TodoItem', id: number, title: string, isCompleted: boolean, priority: TodoPriority }> };
 
 export type CreateTodoMutationVariables = Exact<{
   input: CreateTodoInput;
 }>;
 
 
-export type CreateTodoMutation = { __typename?: 'Mutation', createTodo: { __typename?: 'TodoItem', id: number, title: string, isCompleted: boolean } };
+export type CreateTodoMutation = { __typename?: 'Mutation', createTodo: { __typename?: 'TodoItem', id: number, title: string, isCompleted: boolean, priority: TodoPriority } };
 
 export type ToggleTodoMutationVariables = Exact<{
   id: Scalars['Int']['input'];
 }>;
 
 
-export type ToggleTodoMutation = { __typename?: 'Mutation', toggleTodo: { __typename?: 'TodoItem', id: number, title: string, isCompleted: boolean } };
+export type ToggleTodoMutation = { __typename?: 'Mutation', toggleTodo: { __typename?: 'TodoItem', id: number, title: string, isCompleted: boolean, priority: TodoPriority } };
 
 export type DeleteTodoMutationVariables = Exact<{
   id: Scalars['Int']['input'];
@@ -153,6 +170,7 @@ export const GetTodosDocument = gql`
     id
     title
     isCompleted
+    priority
   }
 }
     `;
@@ -173,6 +191,7 @@ export const CreateTodoDocument = gql`
     id
     title
     isCompleted
+    priority
   }
 }
     `;
@@ -193,6 +212,7 @@ export const ToggleTodoDocument = gql`
     id
     title
     isCompleted
+    priority
   }
 }
     `;

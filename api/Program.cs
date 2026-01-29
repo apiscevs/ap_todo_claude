@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json.Serialization;
 using Todo.Api.GraphQL;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -12,6 +13,11 @@ builder.Services.AddPooledDbContextFactory<TodoDbContext>(options =>
     options.UseNpgsql(connectionString));
 builder.EnrichNpgsqlDbContext<TodoDbContext>();
 builder.AddRedisOutputCache("cache");
+
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -75,7 +81,7 @@ app.MapGet("/api/todos", async (TodoDbContext db) =>
 
 app.MapPost("/api/todos", async (CreateTodoRequest request, TodoDbContext db, IOutputCacheStore cache, CancellationToken ct) =>
 {
-    var todo = new TodoItem { Title = request.Title };
+    var todo = new TodoItem { Title = request.Title, Priority = request.Priority };
     db.Todos.Add(todo);
     await db.SaveChangesAsync(ct);
     await cache.EvictByTagAsync("todos", ct);
@@ -110,7 +116,7 @@ app.MapGraphQL("/graphql");
 
 app.Run();
 
-public record CreateTodoRequest(string Title);
+public record CreateTodoRequest(string Title, TodoPriority Priority = TodoPriority.Medium);
 
 // Make the implicit Program class accessible for integration tests
 public partial class Program { }

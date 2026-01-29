@@ -7,7 +7,7 @@ import {
   DeleteTodoGQL,
   CreateTodoInput
 } from './generated/graphql';
-import { Todo } from './todo.model';
+import { Todo, Priority } from './todo.model';
 
 @Injectable({ providedIn: 'root' })
 export class TodoService {
@@ -25,14 +25,16 @@ export class TodoService {
           return todos.map(t => ({
             id: t.id,
             title: t.title,
-            isCompleted: t.isCompleted
+            isCompleted: t.isCompleted,
+            priority: t.priority as Priority
           })) as Todo[];
         })
       );
   }
 
-  create(title: string) {
-    const input: CreateTodoInput = { title };
+  create(title: string, priority: Priority) {
+    // TODO: Remove 'as any' after codegen generates proper CreateTodoInput type
+    const input: CreateTodoInput = { title, priority: priority as any };
     return this.createTodoGQL
       .mutate({
         variables: { input },
@@ -46,7 +48,8 @@ export class TodoService {
           return {
             id: todo.id,
             title: todo.title,
-            isCompleted: todo.isCompleted
+            isCompleted: todo.isCompleted,
+            priority: todo.priority as Priority
           } as Todo;
         })
       );
@@ -56,13 +59,15 @@ export class TodoService {
     return this.toggleTodoGQL
       .mutate({
         variables: { id },
+        // TODO: Remove 'as any' after codegen generates proper TodoPriority type
         optimisticResponse: {
           __typename: 'Mutation',
           toggleTodo: {
             __typename: 'TodoItem',
             id,
             title: '',
-            isCompleted: true
+            isCompleted: true,
+            priority: 'MEDIUM' as any
           }
         },
         refetchQueries: ['GetTodos']
@@ -74,7 +79,8 @@ export class TodoService {
           return {
             id: todo.id,
             title: todo.title,
-            isCompleted: todo.isCompleted
+            isCompleted: todo.isCompleted,
+            priority: todo.priority as Priority
           } as Todo;
         })
       );

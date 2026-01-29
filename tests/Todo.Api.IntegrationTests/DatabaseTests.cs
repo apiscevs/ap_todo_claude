@@ -242,6 +242,111 @@ public class DatabaseTests : IClassFixture<TodoApiFactory>
         retrievedTodo!.IsCompleted.Should().BeFalse();
     }
 
+    [Fact]
+    public async Task Database_Should_Store_Priority_As_Integer()
+    {
+        // Arrange
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
+        await ClearDatabase();
+
+        // Act
+        var lowPriorityTodo = new TodoItem { Title = "Low Priority", Priority = TodoPriority.Low };
+        var mediumPriorityTodo = new TodoItem { Title = "Medium Priority", Priority = TodoPriority.Medium };
+        var highPriorityTodo = new TodoItem { Title = "High Priority", Priority = TodoPriority.High };
+
+        db.Todos.AddRange(lowPriorityTodo, mediumPriorityTodo, highPriorityTodo);
+        await db.SaveChangesAsync();
+
+        // Clear context to force fresh read from database
+        db.ChangeTracker.Clear();
+
+        var retrievedLow = await db.Todos.FindAsync(lowPriorityTodo.Id);
+        var retrievedMedium = await db.Todos.FindAsync(mediumPriorityTodo.Id);
+        var retrievedHigh = await db.Todos.FindAsync(highPriorityTodo.Id);
+
+        // Assert
+        retrievedLow!.Priority.Should().Be(TodoPriority.Low);
+        retrievedMedium!.Priority.Should().Be(TodoPriority.Medium);
+        retrievedHigh!.Priority.Should().Be(TodoPriority.High);
+    }
+
+    [Fact]
+    public async Task Database_Should_Default_Priority_To_Medium()
+    {
+        // Arrange
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
+        await ClearDatabase();
+
+        // Act - Insert via raw SQL to test database default
+        var title = "Default Priority Test";
+        await db.Database.ExecuteSqlRawAsync(
+            $"INSERT INTO \"Todos\" (\"Title\", \"IsCompleted\") VALUES ('{title}', false)");
+
+        var retrievedTodo = await db.Todos.FirstOrDefaultAsync(t => t.Title == title);
+
+        // Assert
+        retrievedTodo.Should().NotBeNull();
+        retrievedTodo!.Priority.Should().Be(TodoPriority.Medium);
+    }
+
+    [Fact]
+    public async Task Database_Should_Support_Querying_By_Priority()
+    {
+        // Arrange
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
+        await ClearDatabase();
+
+        var highPriorityTodo1 = new TodoItem { Title = "High 1", Priority = TodoPriority.High };
+        var highPriorityTodo2 = new TodoItem { Title = "High 2", Priority = TodoPriority.High };
+        var mediumPriorityTodo = new TodoItem { Title = "Medium", Priority = TodoPriority.Medium };
+        var lowPriorityTodo = new TodoItem { Title = "Low", Priority = TodoPriority.Low };
+
+        db.Todos.AddRange(highPriorityTodo1, highPriorityTodo2, mediumPriorityTodo, lowPriorityTodo);
+        await db.SaveChangesAsync();
+
+        // Act
+        var highPriority = await db.Todos.Where(t => t.Priority == TodoPriority.High).ToListAsync();
+        var mediumPriority = await db.Todos.Where(t => t.Priority == TodoPriority.Medium).ToListAsync();
+        var lowPriority = await db.Todos.Where(t => t.Priority == TodoPriority.Low).ToListAsync();
+
+        // Assert
+        highPriority.Should().HaveCount(2);
+        highPriority.Select(t => t.Title).Should().Contain(new[] { "High 1", "High 2" });
+        mediumPriority.Should().HaveCount(1);
+        mediumPriority[0].Title.Should().Be("Medium");
+        lowPriority.Should().HaveCount(1);
+        lowPriority[0].Title.Should().Be("Low");
+    }
+
+    [Fact]
+    public async Task Database_Should_Support_Ordering_By_Priority()
+    {
+        // Arrange
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
+        await ClearDatabase();
+
+        var mediumTodo = new TodoItem { Title = "Medium", Priority = TodoPriority.Medium };
+        var highTodo = new TodoItem { Title = "High", Priority = TodoPriority.High };
+        var lowTodo = new TodoItem { Title = "Low", Priority = TodoPriority.Low };
+
+        db.Todos.AddRange(mediumTodo, highTodo, lowTodo);
+        await db.SaveChangesAsync();
+
+        // Act
+        var orderedTodos = await db.Todos.OrderBy(t => t.Priority).ToListAsync();
+
+        // Assert
+        // Priority is stored as integer in DB, so ordering is logical: Low (1) < Medium (2) < High (3)
+        orderedTodos.Should().HaveCount(3);
+        orderedTodos[0].Priority.Should().Be(TodoPriority.Low);
+        orderedTodos[1].Priority.Should().Be(TodoPriority.Medium);
+        orderedTodos[2].Priority.Should().Be(TodoPriority.High);
+    }
+
     private async Task ClearDatabase()
     {
         using var scope = _factory.Services.CreateScope();

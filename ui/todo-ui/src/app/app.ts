@@ -2,7 +2,7 @@ import { Component, computed, effect, inject, OnInit, signal } from '@angular/co
 import { CommonModule, DOCUMENT } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TodoService } from './todo.service';
-import { Todo } from './todo.model';
+import { Todo, Priority } from './todo.model';
 
 type Filter = 'all' | 'active' | 'completed';
 
@@ -17,8 +17,11 @@ export class App implements OnInit {
   private todoService = inject(TodoService);
   private document = inject(DOCUMENT);
 
+  readonly PRIORITIES: Priority[] = ['LOW', 'MEDIUM', 'HIGH'];
+
   todos = signal<Todo[]>([]);
-  newTitle = '';
+  newTitle = signal('');
+  newPriority = signal<Priority>('MEDIUM');
   filter = signal<Filter>('all');
   errorMessage = signal('');
   darkMode = signal(false);
@@ -60,11 +63,12 @@ export class App implements OnInit {
   }
 
   add() {
-    const title = this.newTitle.trim();
+    const title = this.newTitle().trim();
     if (!title) return;
-    this.todoService.create(title).subscribe({
+    this.todoService.create(title, this.newPriority()).subscribe({
       next: () => {
-        this.newTitle = '';
+        this.newTitle.set('');
+        this.newPriority.set('MEDIUM');
         this.load();
       },
       error: () => this.showError('Failed to add todo'),
@@ -91,6 +95,10 @@ export class App implements OnInit {
 
   toggleDarkMode() {
     this.darkMode.update((v) => !v);
+  }
+
+  getPriorityLabel(priority: Priority): string {
+    return priority.charAt(0) + priority.slice(1).toLowerCase();
   }
 
   private showError(msg: string) {
