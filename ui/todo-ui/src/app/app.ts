@@ -47,6 +47,15 @@ export class App implements OnInit {
   editEndAt = signal('');
   editIsCompleted = signal(false);
 
+  calendarEditOpen = signal(false);
+  calendarEditId = signal<number | null>(null);
+  calendarEditTitle = signal('');
+  calendarEditDescription = signal('');
+  calendarEditPriority = signal<Priority>('MEDIUM');
+  calendarEditStartAt = signal('');
+  calendarEditEndAt = signal('');
+  calendarEditIsCompleted = signal(false);
+
   activeTab = signal<Tab>('todos');
   filter = signal<Filter>('all');
   errorMessage = signal('');
@@ -74,6 +83,11 @@ export class App implements OnInit {
   unscheduledCount = computed(() =>
     this.todos().filter((t) => !t.startAtUtc || !t.endAtUtc).length
   );
+
+  scheduledWeekCount = computed(() => {
+    const { start, end } = this.getWeekRange(new Date());
+    return this.getTodosForRange(start, end).filter((todo) => !todo.isCompleted).length;
+  });
 
   monthCells = computed(() => this.buildMonthGrid(this.calendarDate()));
 
@@ -126,11 +140,11 @@ export class App implements OnInit {
       .subscribe({
         next: () => {
           this.newTitle.set('');
-          this.newDescription.set('');
-          this.newPriority.set('MEDIUM');
-          this.newStartAt.set('');
-          this.newEndAt.set('');
-          this.load();
+        this.newDescription.set('');
+        this.newPriority.set('MEDIUM');
+        this.newStartAt.set('');
+        this.newEndAt.set('');
+        this.load();
         },
         error: () => this.showError('Failed to add todo'),
       });
@@ -181,11 +195,73 @@ export class App implements OnInit {
     });
   }
 
+  openCalendarEdit(todo: Todo, event?: Event) {
+    event?.stopPropagation();
+    this.editingId.set(null);
+    this.calendarEditOpen.set(true);
+    this.calendarEditId.set(todo.id);
+    this.calendarEditTitle.set(todo.title);
+    this.calendarEditDescription.set(todo.description ?? '');
+    this.calendarEditPriority.set(todo.priority);
+    this.calendarEditIsCompleted.set(todo.isCompleted);
+    this.calendarEditStartAt.set(this.toLocalInputValue(todo.startAtUtc));
+    this.calendarEditEndAt.set(this.toLocalInputValue(todo.endAtUtc));
+  }
+
+  closeCalendarEdit() {
+    this.calendarEditOpen.set(false);
+    this.calendarEditId.set(null);
+  }
+
+  saveCalendarEdit() {
+    const id = this.calendarEditId();
+    if (id === null) return;
+
+    const title = this.calendarEditTitle().trim();
+    if (!title) {
+      this.showError('Title cannot be empty');
+      return;
+    }
+
+    const schedule = this.resolveSchedule(this.calendarEditStartAt(), this.calendarEditEndAt());
+    if (!schedule) return;
+
+    const input: UpdateTodoInput = {
+      title,
+      description: this.calendarEditDescription().trim() || '',
+      priority: this.calendarEditPriority() as any,
+      isCompleted: this.calendarEditIsCompleted(),
+      startAtUtc: schedule.startAtUtc,
+      endAtUtc: schedule.endAtUtc
+    };
+
+    this.todoService.update(id, input).subscribe({
+      next: () => {
+        this.closeCalendarEdit();
+        this.load();
+      },
+      error: () => this.showError('Failed to update todo'),
+    });
+  }
+
   toggle(id: number) {
     this.todoService.toggle(id).subscribe({
       next: () => this.load(),
       error: () => this.showError('Failed to update todo'),
     });
+  }
+
+  toggleFromCalendar(todo: Todo, event: Event) {
+    event.stopPropagation();
+    this.toggle(todo.id);
+  }
+
+  openPicker(input: HTMLInputElement) {
+    if (typeof input.showPicker === 'function') {
+      input.showPicker();
+    } else {
+      input.focus();
+    }
   }
 
   deleteTodo(id: number) {
@@ -197,6 +273,12 @@ export class App implements OnInit {
 
   setFilter(f: Filter) {
     this.filter.set(f);
+  }
+
+  goToCalendarWeek() {
+    this.activeTab.set('calendar');
+    this.calendarView.set('week');
+    this.calendarDate.set(new Date());
   }
 
   toggleDarkMode() {
@@ -312,6 +394,45 @@ export class App implements OnInit {
     );
   }
 
+  onNewStartAtChange(value: string) {
+    this.newStartAt.set(value);
+    if (!this.newEndAt() && value) {
+      this.newEndAt.set(this.addMinutesToLocalInput(value, 30));
+    }
+  }
+
+  onNewEndFocus() {
+    if (!this.newEndAt() && this.newStartAt()) {
+      this.newEndAt.set(this.addMinutesToLocalInput(this.newStartAt(), 30));
+    }
+  }
+
+  onEditStartAtChange(value: string) {
+    this.editStartAt.set(value);
+    if (!this.editEndAt() && value) {
+      this.editEndAt.set(this.addMinutesToLocalInput(value, 30));
+    }
+  }
+
+  onEditEndFocus() {
+    if (!this.editEndAt() && this.editStartAt()) {
+      this.editEndAt.set(this.addMinutesToLocalInput(this.editStartAt(), 30));
+    }
+  }
+
+  onCalendarStartAtChange(value: string) {
+    this.calendarEditStartAt.set(value);
+    if (!this.calendarEditEndAt() && value) {
+      this.calendarEditEndAt.set(this.addMinutesToLocalInput(value, 30));
+    }
+  }
+
+  onCalendarEndFocus() {
+    if (!this.calendarEditEndAt() && this.calendarEditStartAt()) {
+      this.calendarEditEndAt.set(this.addMinutesToLocalInput(this.calendarEditStartAt(), 30));
+    }
+  }
+
   private resolveSchedule(startValue: string, endValue: string) {
     if (!startValue && !endValue) {
       return { startAtUtc: null, endAtUtc: null };
@@ -338,6 +459,13 @@ export class App implements OnInit {
     return { startAtUtc: start.toISOString(), endAtUtc: end.toISOString() };
   }
 
+  private addMinutesToLocalInput(value: string, minutes: number): string {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    date.setMinutes(date.getMinutes() + minutes);
+    return this.formatLocalInput(date);
+  }
+
   private getTodoStart(todo: Todo): Date | null {
     return todo.startAtUtc ? new Date(todo.startAtUtc) : null;
   }
@@ -350,9 +478,30 @@ export class App implements OnInit {
     if (!value) return '';
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return '';
+    return this.formatLocalInput(date);
+  }
+
+  private formatLocalInput(date: Date): string {
     const offset = date.getTimezoneOffset();
     const local = new Date(date.getTime() - offset * 60000);
     return local.toISOString().slice(0, 16);
+  }
+
+  private getWeekRange(date: Date) {
+    const start = this.getWeekStart(date);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+    return { start, end };
+  }
+
+  private getTodosForRange(start: Date, end: Date): Todo[] {
+    return this.scheduledTodos().filter((todo) => {
+      const startAt = this.getTodoStart(todo);
+      const endAt = this.getTodoEnd(todo);
+      if (!startAt || !endAt) return false;
+      return startAt <= end && endAt >= start;
+    });
   }
 
   private buildMonthGrid(date: Date): CalendarCell[] {

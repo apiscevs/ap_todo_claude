@@ -39,22 +39,25 @@
       aria-label="New todo description"
     ></textarea>
     <div class="datetime-range">
-      <div class="datetime-field">
-        <label>Start</label>
+      <label class="datetime-field" (click)="openPicker(newStartInput)">
+        <span>Start</span>
         <input
           type="datetime-local"
+          #newStartInput
           [ngModel]="newStartAt()"
-          (ngModelChange)="newStartAt.set($event)"
+          (ngModelChange)="onNewStartAtChange($event)"
         />
-      </div>
-      <div class="datetime-field">
-        <label>End</label>
+      </label>
+      <label class="datetime-field" (click)="openPicker(newEndInput)">
+        <span>End</span>
         <input
           type="datetime-local"
+          #newEndInput
           [ngModel]="newEndAt()"
           (ngModelChange)="newEndAt.set($event)"
+          (focus)="onNewEndFocus()"
         />
-      </div>
+      </label>
     </div>
     <p class="datetime-hint">Leave both empty to keep this todo unscheduled.</p>
     <div class="priority-selector" role="group" aria-label="Select priority">
@@ -72,6 +75,14 @@
       }
     </div>
     <button class="btn-primary" (click)="add()" [disabled]="!newTitle().trim()">Add</button>
+  </div>
+
+  <div class="todo-summary">
+    @if (scheduledWeekCount() > 0) {
+      <button class="scheduled-card" (click)="goToCalendarWeek()">
+        Scheduled this week ({{ scheduledWeekCount() }})
+      </button>
+    }
   </div>
 
   <nav class="filters" aria-label="Filter todos">
@@ -120,20 +131,23 @@
                   }
                 </select>
               </label>
-              <label>
+              <label (click)="openPicker(editStartInput)">
                 Start
                 <input
                   type="datetime-local"
+                  #editStartInput
                   [ngModel]="editStartAt()"
-                  (ngModelChange)="editStartAt.set($event)"
+                  (ngModelChange)="onEditStartAtChange($event)"
                 />
               </label>
-              <label>
+              <label (click)="openPicker(editEndInput)">
                 End
                 <input
                   type="datetime-local"
+                  #editEndInput
                   [ngModel]="editEndAt()"
                   (ngModelChange)="editEndAt.set($event)"
+                  (focus)="onEditEndFocus()"
                 />
               </label>
             </div>
@@ -155,9 +169,6 @@
             <span class="todo-title">{{ todo.title }}</span>
             @if (todo.description) {
               <span class="todo-description">{{ todo.description }}</span>
-            }
-            @if (todo.startAtUtc && todo.endAtUtc) {
-              <span class="todo-time">{{ getTodoDateLabel(todo) }} · {{ getTodoTimeRange(todo) }}</span>
             }
           </div>
           <span class="priority-badge" [attr.data-priority]="todo.priority.toLowerCase()">
@@ -241,7 +252,16 @@
             <span class="calendar-date">{{ cell.date.getDate() }}</span>
             <div class="calendar-items">
               @for (todo of cell.items.slice(0, 3); track todo.id) {
-                <div class="calendar-item">
+                <div class="calendar-item" (click)="openCalendarEdit(todo, $event)">
+                  <label class="calendar-check" (click)="$event.stopPropagation()">
+                    <input
+                      type="checkbox"
+                      [checked]="todo.isCompleted"
+                      (change)="toggleFromCalendar(todo, $event)"
+                    />
+                    <span class="calendar-switch"></span>
+                    <span class="calendar-label">Done</span>
+                  </label>
                   <span>{{ todo.title }}</span>
                   <span class="calendar-item-time">{{ getTodoTimeRange(todo) }}</span>
                 </div>
@@ -263,7 +283,16 @@
             </div>
             <div class="week-items">
               @for (todo of getWeekDayTodos(day); track todo.id) {
-                <div class="week-item">
+                <div class="week-item" (click)="openCalendarEdit(todo, $event)">
+                  <label class="calendar-check" (click)="$event.stopPropagation()">
+                    <input
+                      type="checkbox"
+                      [checked]="todo.isCompleted"
+                      (change)="toggleFromCalendar(todo, $event)"
+                    />
+                    <span class="calendar-switch"></span>
+                    <span class="calendar-label">Done</span>
+                  </label>
                   <span class="week-item-time">{{ getTodoTimeRange(todo) }}</span>
                   <span class="week-item-title">{{ todo.title }}</span>
                 </div>
@@ -279,7 +308,16 @@
         <div class="day-header">{{ calendarDate() | date:'fullDate' }}</div>
         <div class="day-list">
           @for (todo of dayTodos(); track todo.id) {
-            <div class="day-item">
+            <div class="day-item" (click)="openCalendarEdit(todo, $event)">
+              <label class="calendar-check" (click)="$event.stopPropagation()">
+                <input
+                  type="checkbox"
+                  [checked]="todo.isCompleted"
+                  (change)="toggleFromCalendar(todo, $event)"
+                />
+                <span class="calendar-switch"></span>
+                <span class="calendar-label">Done</span>
+              </label>
               <div class="day-item-time">{{ getTodoTimeRange(todo) }}</div>
               <div class="day-item-body">
                 <strong>{{ todo.title }}</strong>
@@ -295,4 +333,71 @@
       </div>
     }
   </section>
+}
+
+@if (calendarEditOpen()) {
+  <div class="modal-backdrop" (click)="closeCalendarEdit()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <h3>Edit scheduled todo</h3>
+        <button class="icon-btn" (click)="closeCalendarEdit()">&times;</button>
+      </header>
+      <div class="modal-body">
+        <label>
+          Title
+          <input type="text" [ngModel]="calendarEditTitle()" (ngModelChange)="calendarEditTitle.set($event)" />
+        </label>
+        <label>
+          Description
+          <textarea rows="3" [ngModel]="calendarEditDescription()" (ngModelChange)="calendarEditDescription.set($event)"></textarea>
+        </label>
+        <div class="modal-row">
+          <label>
+            Priority
+            <select [ngModel]="calendarEditPriority()" (ngModelChange)="calendarEditPriority.set($event)">
+              @for (p of PRIORITIES; track p) {
+                <option [value]="p">{{ getPriorityLabel(p) }}</option>
+              }
+            </select>
+          </label>
+          <label class="edit-toggle">
+            <input
+              type="checkbox"
+              [checked]="calendarEditIsCompleted()"
+              (change)="calendarEditIsCompleted.set($any($event.target).checked)"
+            />
+            <span>Completed</span>
+          </label>
+        </div>
+        <div class="modal-row">
+          <label (click)="openPicker(calendarStartInput)">
+            Start
+            <input
+              type="datetime-local"
+              #calendarStartInput
+              [ngModel]="calendarEditStartAt()"
+              (ngModelChange)="onCalendarStartAtChange($event)"
+            />
+          </label>
+          <label (click)="openPicker(calendarEndInput)">
+            End
+            <input
+              type="datetime-local"
+              #calendarEndInput
+              [ngModel]="calendarEditEndAt()"
+              (ngModelChange)="calendarEditEndAt.set($event)"
+              (focus)="onCalendarEndFocus()"
+            />
+          </label>
+        </div>
+        <button class="btn-link" (click)="calendarEditStartAt.set(''); calendarEditEndAt.set('')">
+          Clear schedule
+        </button>
+      </div>
+      <footer class="modal-actions">
+        <button class="btn-secondary" (click)="closeCalendarEdit()">Cancel</button>
+        <button class="btn-primary" (click)="saveCalendarEdit()">Done</button>
+      </footer>
+    </div>
+  </div>
 }
