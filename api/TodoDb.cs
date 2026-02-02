@@ -1,4 +1,6 @@
+using HotChocolate;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 
 /// <summary>
 /// Represents the priority level of a todo item.
@@ -14,12 +16,14 @@ public enum TodoPriority
     High = 3
 }
 
-public class TodoDbContext(DbContextOptions<TodoDbContext> options) : DbContext(options)
+public class TodoDbContext(DbContextOptions<TodoDbContext> options) : IdentityDbContext<ApplicationUser>(options)
 {
     public DbSet<TodoItem> Todos => Set<TodoItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        base.OnModelCreating(modelBuilder);
+
         var todo = modelBuilder.Entity<TodoItem>();
 
         // Medium is the default priority to balance between urgent and low-priority tasks
@@ -53,4 +57,8 @@ public class TodoItem
     public string? Description { get; set; }
     public DateTime? StartAtUtc { get; set; }
     public DateTime? EndAtUtc { get; set; }
+    [GraphQLIgnore]
+    public string UserId { get; set; } = string.Empty;
+    [GraphQLIgnore]
+    public ApplicationUser? User { get; set; }
 }

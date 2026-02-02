@@ -1,5 +1,8 @@
+using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using System.Text.Json.Serialization;
 using Todo.Api.GraphQL;
 
@@ -14,6 +17,50 @@ builder.Services.AddPooledDbContextFactory<TodoDbContext>(options =>
 builder.EnrichNpgsqlDbContext<TodoDbContext>();
 builder.AddRedisOutputCache("cache");
 
+builder.Services.AddIdentityCore<ApplicationUser>(options =>
+    {
+        options.User.RequireUniqueEmail = true;
+    })
+    .AddEntityFrameworkStores<TodoDbContext>()
+    .AddSignInManager()
+    .AddDefaultTokenProviders();
+
+builder.Services.AddAuthentication(IdentityConstants.ApplicationScheme)
+    .AddCookie(IdentityConstants.ApplicationScheme, options =>
+    {
+        options.Cookie.Name = "todo_auth";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+            ? CookieSecurePolicy.SameAsRequest
+            : CookieSecurePolicy.Always;
+        options.SlidingExpiration = true;
+        options.ExpireTimeSpan = TimeSpan.FromDays(7);
+        options.Events.OnRedirectToLogin = context =>
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return Task.CompletedTask;
+        };
+        options.Events.OnRedirectToAccessDenied = context =>
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return Task.CompletedTask;
+        };
+    });
+
+builder.Services.AddAuthorization();
+
+builder.Services.AddAntiforgery(options =>
+{
+    options.HeaderName = "X-XSRF-TOKEN";
+    options.Cookie.Name = "todo_antiforgery";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+        ? CookieSecurePolicy.SameAsRequest
+        : CookieSecurePolicy.Always;
+});
+
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
@@ -26,7 +73,8 @@ builder.Services.AddCors(options =>
     options.AddDefaultPolicy(policy =>
         policy.WithOrigins("http://localhost:4200")
               .AllowAnyHeader()
-              .AllowAnyMethod());
+              .AllowAnyMethod()
+              .AllowCredentials());
 });
 
 builder.Services
@@ -74,13 +122,124 @@ if (app.Environment.IsDevelopment())
 app.MapDefaultEndpoints();
 app.UseCors();
 app.UseOutputCache();
+app.UseAuthentication();
+app.UseAuthorization();
 
-app.MapGet("/api/todos", async (TodoDbContext db) =>
-    await db.Todos.OrderBy(t => t.Id).ToListAsync())
-    .CacheOutput(p => p.Tag("todos"));
-
-app.MapPost("/api/todos", async (CreateTodoRequest request, TodoDbContext db, IOutputCacheStore cache, CancellationToken ct) =>
+app.Use(async (context, next) =>
 {
+    if (HttpMethods.IsPost(context.Request.Method) ||
+        HttpMethods.IsPut(context.Request.Method) ||
+        HttpMethods.IsDelete(context.Request.Method) ||
+        HttpMethods.IsPatch(context.Request.Method))
+    {
+        if (!context.Request.Path.StartsWithSegments("/auth/csrf") &&
+            !context.Request.Path.StartsWithSegments("/graphql"))
+        {
+            var antiforgery = context.RequestServices.GetRequiredService<IAntiforgery>();
+            await antiforgery.ValidateRequestAsync(context);
+        }
+    }
+
+    await next();
+});
+
+app.MapGet("/auth/csrf", (IAntiforgery antiforgery, HttpContext context) =>
+{
+    var tokens = antiforgery.GetAndStoreTokens(context);
+    context.Response.Cookies.Append("XSRF-TOKEN", tokens.RequestToken!, new CookieOptions
+    {
+        HttpOnly = false,
+        SameSite = SameSiteMode.Lax,
+        Secure = !builder.Environment.IsDevelopment(),
+        Path = "/"
+    });
+    return Results.NoContent();
+});
+
+app.MapPost("/auth/register", async (
+    RegisterRequest request,
+    UserManager<ApplicationUser> userManager,
+    SignInManager<ApplicationUser> signInManager) =>
+{
+    var user = new ApplicationUser
+    {
+        UserName = request.Email,
+        Email = request.Email,
+        FirstName = request.FirstName,
+        LastName = request.LastName
+    };
+
+    var result = await userManager.CreateAsync(user, request.Password);
+    if (!result.Succeeded)
+        return Results.BadRequest(result.Errors.Select(e => e.Description));
+
+    await signInManager.SignInAsync(user, isPersistent: true);
+    return Results.Ok(new UserResponse(user.Id, user.Email!, user.FirstName, user.LastName));
+});
+
+app.MapPost("/auth/login", async (
+    LoginRequest request,
+    UserManager<ApplicationUser> userManager,
+    SignInManager<ApplicationUser> signInManager) =>
+{
+    var user = await userManager.FindByEmailAsync(request.Email);
+    if (user is null)
+        return Results.BadRequest(new { error = "Invalid credentials" });
+
+    var result = await signInManager.PasswordSignInAsync(user, request.Password, true, lockoutOnFailure: false);
+    if (!result.Succeeded)
+        return Results.BadRequest(new { error = "Invalid credentials" });
+
+    return Results.Ok(new UserResponse(user.Id, user.Email!, user.FirstName, user.LastName));
+});
+
+app.MapPost("/auth/logout", async (SignInManager<ApplicationUser> signInManager) =>
+{
+    await signInManager.SignOutAsync();
+    return Results.NoContent();
+}).RequireAuthorization();
+
+app.MapGet("/auth/me", async (ClaimsPrincipal user, UserManager<ApplicationUser> userManager) =>
+{
+    var userId = userManager.GetUserId(user);
+    if (userId is null)
+        return Results.Unauthorized();
+
+    var currentUser = await userManager.FindByIdAsync(userId);
+    if (currentUser is null)
+        return Results.Unauthorized();
+
+    return Results.Ok(new UserResponse(currentUser.Id, currentUser.Email!, currentUser.FirstName, currentUser.LastName));
+}).RequireAuthorization();
+
+app.MapGet("/api/todos", async (
+    TodoDbContext db,
+    UserManager<ApplicationUser> userManager,
+    ClaimsPrincipal user) =>
+{
+    var userId = userManager.GetUserId(user);
+    if (userId is null)
+        return Results.Unauthorized();
+
+    var todos = await db.Todos
+        .Where(t => t.UserId == userId)
+        .OrderBy(t => t.Id)
+        .ToListAsync();
+    return Results.Ok(todos);
+}).RequireAuthorization();
+
+app.MapPost("/api/todos", async (
+    CreateTodoRequest request,
+    TodoDbContext db,
+    UserManager<ApplicationUser> userManager,
+    ClaimsPrincipal user,
+    IOutputCacheStore cache,
+    CancellationToken ct) =>
+{
+    var userId = userManager.GetUserId(user);
+    if (userId is null)
+        return Results.Unauthorized();
+
     var (startAtUtc, endAtUtc) = TodoSchedule.Normalize(request.StartAtUtc, request.EndAtUtc);
     if (!TodoSchedule.TryValidate(startAtUtc, endAtUtc, out var error))
         return Results.BadRequest(new { error });
@@ -91,17 +250,28 @@ app.MapPost("/api/todos", async (CreateTodoRequest request, TodoDbContext db, IO
         Description = request.Description ?? string.Empty,
         Priority = request.Priority,
         StartAtUtc = startAtUtc,
-        EndAtUtc = endAtUtc
+        EndAtUtc = endAtUtc,
+        UserId = userId
     };
     db.Todos.Add(todo);
     await db.SaveChangesAsync(ct);
     await cache.EvictByTagAsync("todos", ct);
     return Results.Created($"/api/todos/{todo.Id}", todo);
-});
+}).RequireAuthorization();
 
-app.MapPut("/api/todos/{id}/toggle", async (int id, TodoDbContext db, IOutputCacheStore cache, CancellationToken ct) =>
+app.MapPut("/api/todos/{id}/toggle", async (
+    int id,
+    TodoDbContext db,
+    UserManager<ApplicationUser> userManager,
+    ClaimsPrincipal user,
+    IOutputCacheStore cache,
+    CancellationToken ct) =>
 {
-    var todo = await db.Todos.FindAsync([id], ct);
+    var userId = userManager.GetUserId(user);
+    if (userId is null)
+        return Results.Unauthorized();
+
+    var todo = await db.Todos.FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId, ct);
     if (todo is null)
         return Results.NotFound();
 
@@ -109,11 +279,21 @@ app.MapPut("/api/todos/{id}/toggle", async (int id, TodoDbContext db, IOutputCac
     await db.SaveChangesAsync(ct);
     await cache.EvictByTagAsync("todos", ct);
     return Results.Ok(todo);
-});
+}).RequireAuthorization();
 
-app.MapDelete("/api/todos/{id}", async (int id, TodoDbContext db, IOutputCacheStore cache, CancellationToken ct) =>
+app.MapDelete("/api/todos/{id}", async (
+    int id,
+    TodoDbContext db,
+    UserManager<ApplicationUser> userManager,
+    ClaimsPrincipal user,
+    IOutputCacheStore cache,
+    CancellationToken ct) =>
 {
-    var todo = await db.Todos.FindAsync([id], ct);
+    var userId = userManager.GetUserId(user);
+    if (userId is null)
+        return Results.Unauthorized();
+
+    var todo = await db.Todos.FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId, ct);
     if (todo is null)
         return Results.NotFound();
 
@@ -121,11 +301,22 @@ app.MapDelete("/api/todos/{id}", async (int id, TodoDbContext db, IOutputCacheSt
     await db.SaveChangesAsync(ct);
     await cache.EvictByTagAsync("todos", ct);
     return Results.NoContent();
-});
+}).RequireAuthorization();
 
-app.MapPut("/api/todos/{id}", async (int id, UpdateTodoRequest request, TodoDbContext db, IOutputCacheStore cache, CancellationToken ct) =>
+app.MapPut("/api/todos/{id}", async (
+    int id,
+    UpdateTodoRequest request,
+    TodoDbContext db,
+    UserManager<ApplicationUser> userManager,
+    ClaimsPrincipal user,
+    IOutputCacheStore cache,
+    CancellationToken ct) =>
 {
-    var todo = await db.Todos.FindAsync([id], ct);
+    var userId = userManager.GetUserId(user);
+    if (userId is null)
+        return Results.Unauthorized();
+
+    var todo = await db.Todos.FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId, ct);
     if (todo is null)
         return Results.NotFound();
 
@@ -143,8 +334,9 @@ app.MapPut("/api/todos/{id}", async (int id, UpdateTodoRequest request, TodoDbCo
     await db.SaveChangesAsync(ct);
     await cache.EvictByTagAsync("todos", ct);
     return Results.Ok(todo);
-});
+}).RequireAuthorization();
 
+// Keep resolver-level auth checks while allowing unauthenticated schema introspection for tooling (codegen).
 app.MapGraphQL("/graphql");
 
 app.Run();
@@ -163,6 +355,10 @@ public record UpdateTodoRequest(
     string? Description,
     DateTime? StartAtUtc,
     DateTime? EndAtUtc);
+
+public record RegisterRequest(string Email, string Password, string? FirstName, string? LastName);
+public record LoginRequest(string Email, string Password);
+public record UserResponse(string Id, string Email, string? FirstName, string? LastName);
 
 // Make the implicit Program class accessible for integration tests
 public partial class Program { }

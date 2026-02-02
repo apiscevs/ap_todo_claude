@@ -2,26 +2,78 @@
   <div class="toast">{{ errorMessage() }}</div>
 }
 
-<header class="header">
-  <div class="header-text">
-    <h1>Todos</h1>
-    <p>Stay organized, one task at a time</p>
-  </div>
-  <button class="theme-toggle" (click)="toggleDarkMode()" aria-label="Toggle dark mode">
-    {{ darkMode() ? '&#9788;' : '&#9789;' }}
-  </button>
-</header>
+@if (!currentUser()) {
+  <section class="auth-shell">
+    <div class="auth-card">
+      <header>
+        <h1>Welcome back</h1>
+        <p>Sign in to keep your tasks organized.</p>
+      </header>
+      <div class="auth-tabs">
+        <button class="tab-btn" [class.active]="authMode() === 'login'" (click)="setAuthMode('login')">
+          Login
+        </button>
+        <button class="tab-btn" [class.active]="authMode() === 'register'" (click)="setAuthMode('register')">
+          Register
+        </button>
+      </div>
+      <div class="auth-form">
+        <label>
+          Email
+          <input type="email" [ngModel]="authEmail()" (ngModelChange)="authEmail.set($event)" />
+        </label>
+        <label>
+          Password
+          <input type="password" [ngModel]="authPassword()" (ngModelChange)="authPassword.set($event)" />
+        </label>
+        @if (authMode() === 'register') {
+          <div class="auth-row">
+            <label>
+              First name
+              <input type="text" [ngModel]="authFirstName()" (ngModelChange)="authFirstName.set($event)" />
+            </label>
+            <label>
+              Last name
+              <input type="text" [ngModel]="authLastName()" (ngModelChange)="authLastName.set($event)" />
+            </label>
+          </div>
+        }
+        @if (authError()) {
+          <div class="auth-error">{{ authError() }}</div>
+        }
+        <button class="btn-primary" (click)="authMode() === 'login' ? submitLogin() : submitRegister()">
+          {{ authMode() === 'login' ? 'Sign in' : 'Create account' }}
+        </button>
+      </div>
+    </div>
+  </section>
+} @else {
+  <header class="header">
+    <div class="header-text">
+      <h1>Todos</h1>
+      <p>Stay organized, one task at a time</p>
+    </div>
+    <div class="header-actions">
+      <div class="user-badge">
+        {{ currentUser()?.email }}
+      </div>
+      <button class="btn-secondary" (click)="logout()">Logout</button>
+      <button class="theme-toggle" (click)="toggleDarkMode()" aria-label="Toggle dark mode">
+        {{ darkMode() ? '&#9788;' : '&#9789;' }}
+      </button>
+    </div>
+  </header>
 
-<nav class="tabs" aria-label="Primary navigation">
-  <button class="tab-btn" [class.active]="activeTab() === 'todos'" (click)="setTab('todos')">
-    Todos
-  </button>
-  <button class="tab-btn" [class.active]="activeTab() === 'calendar'" (click)="setTab('calendar')">
-    Calendar
-  </button>
-</nav>
+  <nav class="tabs" aria-label="Primary navigation">
+    <button class="tab-btn" [class.active]="activeTab() === 'todos'" (click)="setTab('todos')">
+      Todos
+    </button>
+    <button class="tab-btn" [class.active]="activeTab() === 'calendar'" (click)="setTab('calendar')">
+      Calendar
+    </button>
+  </nav>
 
-@if (activeTab() === 'todos') {
+  @if (activeTab() === 'todos') {
   <div class="add-form">
     <input
       type="text"
@@ -195,7 +247,7 @@
       </li>
     }
   </ul>
-} @else {
+  } @else {
   <section class="calendar">
     <div class="calendar-top">
       <div class="calendar-title">
@@ -333,6 +385,7 @@
       </div>
     }
   </section>
+}
 }
 
 @if (calendarEditOpen()) {

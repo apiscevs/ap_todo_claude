@@ -1,9 +1,11 @@
 import { Component, computed, effect, inject, OnInit, signal } from '@angular/core';
 import { CommonModule, DOCUMENT } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpClientModule } from '@angular/common/http';
 import { TodoService } from './todo.service';
 import { Todo, Priority } from './todo.model';
 import { UpdateTodoInput } from './generated/graphql';
+import { AuthService, AuthUser } from './auth.service';
 
 type Filter = 'all' | 'active' | 'completed';
 type Tab = 'todos' | 'calendar';
@@ -20,12 +22,13 @@ type CalendarCell = {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, HttpClientModule],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
 export class App implements OnInit {
   private todoService = inject(TodoService);
+  private authService = inject(AuthService);
   private document = inject(DOCUMENT);
 
   readonly PRIORITIES: Priority[] = ['LOW', 'MEDIUM', 'HIGH'];
@@ -55,6 +58,14 @@ export class App implements OnInit {
   calendarEditStartAt = signal('');
   calendarEditEndAt = signal('');
   calendarEditIsCompleted = signal(false);
+
+  currentUser = signal<AuthUser | null>(null);
+  authMode = signal<'login' | 'register'>('login');
+  authEmail = signal('');
+  authPassword = signal('');
+  authFirstName = signal('');
+  authLastName = signal('');
+  authError = signal('');
 
   activeTab = signal<Tab>('todos');
   filter = signal<Filter>('all');
@@ -113,13 +124,80 @@ export class App implements OnInit {
   }
 
   ngOnInit() {
-    this.load();
+    this.authService.csrf().subscribe({
+      next: () => this.bootstrapSession(),
+      error: () => this.bootstrapSession()
+    });
   }
 
   load() {
+    if (!this.currentUser()) return;
     this.todoService.getAll().subscribe({
       next: (t) => this.todos.set(t),
       error: () => this.showError('Failed to load todos'),
+    });
+  }
+
+  setAuthMode(mode: 'login' | 'register') {
+    this.authMode.set(mode);
+    this.authError.set('');
+  }
+
+  submitLogin() {
+    const email = this.authEmail().trim();
+    const password = this.authPassword();
+    if (!email || !password) {
+      this.authError.set('Email and password are required.');
+      return;
+    }
+
+    this.authService.login({ email, password }).subscribe({
+      next: (user) => {
+        this.currentUser.set(user);
+        this.authPassword.set('');
+        this.authError.set('');
+        this.load();
+      },
+      error: () => this.authError.set('Invalid email or password.'),
+    });
+  }
+
+  submitRegister() {
+    const email = this.authEmail().trim();
+    const password = this.authPassword();
+    if (!email || !password) {
+      this.authError.set('Email and password are required.');
+      return;
+    }
+
+    this.authService.register({
+      email,
+      password,
+      firstName: this.authFirstName().trim() || undefined,
+      lastName: this.authLastName().trim() || undefined
+    }).subscribe({
+      next: (user) => {
+        this.currentUser.set(user);
+        this.authPassword.set('');
+        this.authFirstName.set('');
+        this.authLastName.set('');
+        this.authError.set('');
+        this.load();
+      },
+      error: () => this.authError.set('Unable to register with those details.'),
+    });
+  }
+
+  logout() {
+    this.authService.logout().subscribe({
+      next: () => {
+        this.currentUser.set(null);
+        this.todos.set([]);
+        this.authEmail.set('');
+        this.authPassword.set('');
+        this.authError.set('');
+      },
+      error: () => this.showError('Failed to log out'),
     });
   }
 
@@ -561,5 +639,15 @@ export class App implements OnInit {
   private showError(msg: string) {
     this.errorMessage.set(msg);
     setTimeout(() => this.errorMessage.set(''), 4000);
+  }
+
+  private bootstrapSession() {
+    this.authService.me().subscribe({
+      next: (user) => {
+        this.currentUser.set(user);
+        this.load();
+      },
+      error: () => this.currentUser.set(null),
+    });
   }
 }

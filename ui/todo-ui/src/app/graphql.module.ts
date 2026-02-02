@@ -6,7 +6,7 @@ export function createApollo(): ApolloClientOptions {
   const httpLink = inject(HttpLink);
 
   return {
-    link: httpLink.create({ uri: '/graphql' }),
+    link: httpLink.create({ uri: '/graphql', withCredentials: true }),
     cache: new InMemoryCache({
       typePolicies: {
         Query: {

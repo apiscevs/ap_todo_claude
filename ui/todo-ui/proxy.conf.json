@@ -8,5 +8,10 @@
     "target": "http://localhost:5181",
     "secure": false,
     "changeOrigin": true
+  },
+  "/auth": {
+    "target": "http://localhost:5181",
+    "secure": false,
+    "changeOrigin": true
   }
 }

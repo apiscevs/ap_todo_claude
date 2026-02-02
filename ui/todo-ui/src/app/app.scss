@@ -49,6 +49,23 @@
   text-transform: uppercase;
 }
 
+.header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.user-badge {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-line);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
 .theme-toggle {
   background: var(--color-surface-elevated);
   border: 1px solid var(--color-line);
@@ -99,6 +116,84 @@
   background: var(--color-accent);
   color: #fff;
   box-shadow: var(--shadow-sm);
+}
+
+.auth-shell {
+  min-height: 80vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-card {
+  width: min(520px, 100%);
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.auth-card header h1 {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  margin-bottom: 8px;
+}
+
+.auth-card header p {
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+}
+
+.auth-tabs {
+  display: inline-flex;
+  gap: 6px;
+  padding: 6px;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.auth-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-text-secondary);
+}
+
+.auth-form input {
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-line);
+  background: var(--color-surface-elevated);
+  color: var(--color-text);
+  font-size: 0.95rem;
+}
+
+.auth-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-3);
+}
+
+.auth-error {
+  background: rgba(212, 93, 93, 0.12);
+  color: var(--color-danger);
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 0.8rem;
 }
 
 .add-form {

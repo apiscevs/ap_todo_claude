@@ -1,5 +1,8 @@
 using HotChocolate;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.OutputCaching;
+using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace Todo.Api.GraphQL;
 
@@ -9,9 +12,15 @@ public class Mutation
     public async Task<TodoItem> CreateTodo(
         CreateTodoInput input,
         [Service(ServiceKind.Synchronized)] TodoDbContext db,
+        ClaimsPrincipal user,
+        [Service] UserManager<ApplicationUser> userManager,
         [Service] IOutputCacheStore cache,
         CancellationToken ct)
     {
+        var userId = userManager.GetUserId(user);
+        if (userId is null)
+            throw new GraphQLException("Unauthorized");
+
         var (startAtUtc, endAtUtc) = TodoSchedule.Normalize(input.StartAtUtc, input.EndAtUtc);
         if (!TodoSchedule.TryValidate(startAtUtc, endAtUtc, out var error))
             throw new GraphQLException(error);
@@ -22,7 +31,8 @@ public class Mutation
             Description = input.Description ?? string.Empty,
             Priority = input.Priority,
             StartAtUtc = startAtUtc,
-            EndAtUtc = endAtUtc
+            EndAtUtc = endAtUtc,
+            UserId = userId
         };
         db.Todos.Add(todo);
         await db.SaveChangesAsync(ct);
@@ -35,10 +45,16 @@ public class Mutation
         int id,
         UpdateTodoInput input,
         [Service(ServiceKind.Synchronized)] TodoDbContext db,
+        ClaimsPrincipal user,
+        [Service] UserManager<ApplicationUser> userManager,
         [Service] IOutputCacheStore cache,
         CancellationToken ct)
     {
-        var todo = await db.Todos.FindAsync([id], ct);
+        var userId = userManager.GetUserId(user);
+        if (userId is null)
+            throw new GraphQLException("Unauthorized");
+
+        var todo = await db.Todos.FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId, ct);
         if (todo is null)
             throw new GraphQLException("Todo not found");
 
@@ -47,7 +63,7 @@ public class Mutation
             throw new GraphQLException(error);
 
         todo.Title = input.Title;
-        todo.Description = input.Description;
+        todo.Description = input.Description ?? string.Empty;
         todo.IsCompleted = input.IsCompleted;
         todo.Priority = input.Priority;
         todo.StartAtUtc = startAtUtc;
@@ -62,10 +78,16 @@ public class Mutation
     public async Task<TodoItem> ToggleTodo(
         int id,
         [Service(ServiceKind.Synchronized)] TodoDbContext db,
+        ClaimsPrincipal user,
+        [Service] UserManager<ApplicationUser> userManager,
         [Service] IOutputCacheStore cache,
         CancellationToken ct)
     {
-        var todo = await db.Todos.FindAsync([id], ct);
+        var userId = userManager.GetUserId(user);
+        if (userId is null)
+            throw new GraphQLException("Unauthorized");
+
+        var todo = await db.Todos.FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId, ct);
         if (todo is null)
             throw new GraphQLException("Todo not found");
 
@@ -79,10 +101,16 @@ public class Mutation
     public async Task<bool> DeleteTodo(
         int id,
         [Service(ServiceKind.Synchronized)] TodoDbContext db,
+        ClaimsPrincipal user,
+        [Service] UserManager<ApplicationUser> userManager,
         [Service] IOutputCacheStore cache,
         CancellationToken ct)
     {
-        var todo = await db.Todos.FindAsync([id], ct);
+        var userId = userManager.GetUserId(user);
+        if (userId is null)
+            throw new GraphQLException("Unauthorized");
+
+        var todo = await db.Todos.FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId, ct);
         if (todo is null)
             throw new GraphQLException("Todo not found");
 
