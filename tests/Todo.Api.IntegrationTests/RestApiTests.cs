@@ -7,10 +7,11 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Todo.Api.IntegrationTests;
 
-public class RestApiTests : IClassFixture<TodoApiFactory>
+public class RestApiTests : IClassFixture<TodoApiFactory>, IAsyncLifetime
 {
-    private readonly HttpClient _client;
     private readonly TodoApiFactory _factory;
+    private HttpClient _client = null!;
+    private string _userId = string.Empty;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -20,7 +21,19 @@ public class RestApiTests : IClassFixture<TodoApiFactory>
     public RestApiTests(TodoApiFactory factory)
     {
         _factory = factory;
-        _client = factory.CreateClient();
+    }
+
+    public async Task InitializeAsync()
+    {
+        var session = await _factory.CreateAuthenticatedClientAsync();
+        _client = session.Client;
+        _userId = session.UserId;
+    }
+
+    public Task DisposeAsync()
+    {
+        _client.Dispose();
+        return Task.CompletedTask;
     }
 
     [Fact]
@@ -296,7 +309,8 @@ public class RestApiTests : IClassFixture<TodoApiFactory>
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
-        db.Todos.RemoveRange(db.Todos);
+        var todos = db.Todos.Where(t => t.UserId == _userId);
+        db.Todos.RemoveRange(todos);
         await db.SaveChangesAsync();
     }
 }

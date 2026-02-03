@@ -47,10 +47,11 @@ public class DatabaseTests : IClassFixture<TodoApiFactory>
         // Arrange
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
-        await ClearDatabase();
+        var user = await _factory.CreateUserAsync();
+        await ClearDatabase(user.Id);
 
         // Act - Create
-        var todo = new TodoItem { Title = "Database Test" };
+        var todo = new TodoItem { Title = "Database Test", UserId = user.Id };
         db.Todos.Add(todo);
         await db.SaveChangesAsync();
 
@@ -87,11 +88,12 @@ public class DatabaseTests : IClassFixture<TodoApiFactory>
         // Arrange
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
-        await ClearDatabase();
+        var user = await _factory.CreateUserAsync();
+        await ClearDatabase(user.Id);
 
         // Act
-        var todo1 = new TodoItem { Title = "First" };
-        var todo2 = new TodoItem { Title = "Second" };
+        var todo1 = new TodoItem { Title = "First", UserId = user.Id };
+        var todo2 = new TodoItem { Title = "Second", UserId = user.Id };
         db.Todos.AddRange(todo1, todo2);
         await db.SaveChangesAsync();
 
@@ -107,17 +109,18 @@ public class DatabaseTests : IClassFixture<TodoApiFactory>
         // Arrange
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
-        await ClearDatabase();
+        var user = await _factory.CreateUserAsync();
+        await ClearDatabase(user.Id);
 
         // Act
         var todos = Enumerable.Range(1, 10)
-            .Select(i => new TodoItem { Title = $"Todo {i}" })
+            .Select(i => new TodoItem { Title = $"Todo {i}", UserId = user.Id })
             .ToList();
 
         db.Todos.AddRange(todos);
         await db.SaveChangesAsync();
 
-        var count = await db.Todos.CountAsync();
+        var count = await db.Todos.CountAsync(t => t.UserId == user.Id);
 
         // Assert
         count.Should().Be(10);
@@ -129,16 +132,17 @@ public class DatabaseTests : IClassFixture<TodoApiFactory>
         // Arrange
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
-        await ClearDatabase();
+        var user = await _factory.CreateUserAsync();
+        await ClearDatabase(user.Id);
 
-        var completedTodo = new TodoItem { Title = "Completed", IsCompleted = true };
-        var incompleteTodo = new TodoItem { Title = "Incomplete", IsCompleted = false };
+        var completedTodo = new TodoItem { Title = "Completed", IsCompleted = true, UserId = user.Id };
+        var incompleteTodo = new TodoItem { Title = "Incomplete", IsCompleted = false, UserId = user.Id };
         db.Todos.AddRange(completedTodo, incompleteTodo);
         await db.SaveChangesAsync();
 
         // Act
-        var completed = await db.Todos.Where(t => t.IsCompleted).ToListAsync();
-        var incomplete = await db.Todos.Where(t => !t.IsCompleted).ToListAsync();
+        var completed = await db.Todos.Where(t => t.UserId == user.Id && t.IsCompleted).ToListAsync();
+        var incomplete = await db.Todos.Where(t => t.UserId == user.Id && !t.IsCompleted).ToListAsync();
 
         // Assert
         completed.Should().HaveCount(1);
@@ -153,18 +157,19 @@ public class DatabaseTests : IClassFixture<TodoApiFactory>
         // Arrange
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
-        await ClearDatabase();
+        var user = await _factory.CreateUserAsync();
+        await ClearDatabase(user.Id);
 
         var titles = new[] { "Charlie", "Alice", "Bob" };
         foreach (var title in titles)
         {
-            db.Todos.Add(new TodoItem { Title = title });
+            db.Todos.Add(new TodoItem { Title = title, UserId = user.Id });
             await db.SaveChangesAsync();
         }
 
         // Act
-        var orderedByTitle = await db.Todos.OrderBy(t => t.Title).ToListAsync();
-        var orderedById = await db.Todos.OrderBy(t => t.Id).ToListAsync();
+        var orderedByTitle = await db.Todos.Where(t => t.UserId == user.Id).OrderBy(t => t.Title).ToListAsync();
+        var orderedById = await db.Todos.Where(t => t.UserId == user.Id).OrderBy(t => t.Id).ToListAsync();
 
         // Assert
         orderedByTitle.Select(t => t.Title).Should().ContainInOrder("Alice", "Bob", "Charlie");
@@ -177,14 +182,15 @@ public class DatabaseTests : IClassFixture<TodoApiFactory>
         // Arrange
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
-        await ClearDatabase();
+        var user = await _factory.CreateUserAsync();
+        await ClearDatabase(user.Id);
 
         // Act
         var tasks = Enumerable.Range(1, 5).Select(async i =>
         {
             using var taskScope = _factory.Services.CreateScope();
             var taskDb = taskScope.ServiceProvider.GetRequiredService<TodoDbContext>();
-            var todo = new TodoItem { Title = $"Concurrent {i}" };
+            var todo = new TodoItem { Title = $"Concurrent {i}", UserId = user.Id };
             taskDb.Todos.Add(todo);
             await taskDb.SaveChangesAsync();
             return todo.Id;
@@ -196,7 +202,7 @@ public class DatabaseTests : IClassFixture<TodoApiFactory>
         ids.Should().HaveCount(5);
         ids.Should().OnlyHaveUniqueItems();
 
-        var count = await db.Todos.CountAsync();
+        var count = await db.Todos.CountAsync(t => t.UserId == user.Id);
         count.Should().Be(5);
     }
 
@@ -206,7 +212,8 @@ public class DatabaseTests : IClassFixture<TodoApiFactory>
         // Arrange
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
-        await ClearDatabase();
+        var user = await _factory.CreateUserAsync();
+        await ClearDatabase(user.Id);
 
         // This test verifies that the database schema enforces NOT NULL on Title
         // by attempting to insert a record with null Title via raw SQL
@@ -215,7 +222,8 @@ public class DatabaseTests : IClassFixture<TodoApiFactory>
         // Act & Assert
         var act = async () =>
         {
-            await db.Database.ExecuteSqlRawAsync("INSERT INTO \"Todos\" (\"Title\", \"IsCompleted\") VALUES (NULL, false)");
+            await db.Database.ExecuteSqlAsync(
+                $"INSERT INTO \"Todos\" (\"Title\", \"IsCompleted\", \"UserId\") VALUES (NULL, false, {user.Id})");
         };
 
         await act.Should().ThrowAsync<Exception>();
@@ -227,10 +235,11 @@ public class DatabaseTests : IClassFixture<TodoApiFactory>
         // Arrange
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
-        await ClearDatabase();
+        var user = await _factory.CreateUserAsync();
+        await ClearDatabase(user.Id);
 
         // Act
-        var todo = new TodoItem { Title = "Default Test" };
+        var todo = new TodoItem { Title = "Default Test", UserId = user.Id };
         db.Todos.Add(todo);
         await db.SaveChangesAsync();
 
@@ -248,12 +257,13 @@ public class DatabaseTests : IClassFixture<TodoApiFactory>
         // Arrange
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
-        await ClearDatabase();
+        var user = await _factory.CreateUserAsync();
+        await ClearDatabase(user.Id);
 
         // Act
-        var lowPriorityTodo = new TodoItem { Title = "Low Priority", Priority = TodoPriority.Low };
-        var mediumPriorityTodo = new TodoItem { Title = "Medium Priority", Priority = TodoPriority.Medium };
-        var highPriorityTodo = new TodoItem { Title = "High Priority", Priority = TodoPriority.High };
+        var lowPriorityTodo = new TodoItem { Title = "Low Priority", Priority = TodoPriority.Low, UserId = user.Id };
+        var mediumPriorityTodo = new TodoItem { Title = "Medium Priority", Priority = TodoPriority.Medium, UserId = user.Id };
+        var highPriorityTodo = new TodoItem { Title = "High Priority", Priority = TodoPriority.High, UserId = user.Id };
 
         db.Todos.AddRange(lowPriorityTodo, mediumPriorityTodo, highPriorityTodo);
         await db.SaveChangesAsync();
@@ -277,14 +287,15 @@ public class DatabaseTests : IClassFixture<TodoApiFactory>
         // Arrange
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
-        await ClearDatabase();
+        var user = await _factory.CreateUserAsync();
+        await ClearDatabase(user.Id);
 
         // Act - Insert via raw SQL to test database default
         var title = "Default Priority Test";
-        await db.Database.ExecuteSqlRawAsync(
-            $"INSERT INTO \"Todos\" (\"Title\", \"IsCompleted\") VALUES ('{title}', false)");
+        await db.Database.ExecuteSqlAsync(
+            $"INSERT INTO \"Todos\" (\"Title\", \"IsCompleted\", \"UserId\") VALUES ({title}, false, {user.Id})");
 
-        var retrievedTodo = await db.Todos.FirstOrDefaultAsync(t => t.Title == title);
+        var retrievedTodo = await db.Todos.FirstOrDefaultAsync(t => t.Title == title && t.UserId == user.Id);
 
         // Assert
         retrievedTodo.Should().NotBeNull();
@@ -297,20 +308,21 @@ public class DatabaseTests : IClassFixture<TodoApiFactory>
         // Arrange
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
-        await ClearDatabase();
+        var user = await _factory.CreateUserAsync();
+        await ClearDatabase(user.Id);
 
-        var highPriorityTodo1 = new TodoItem { Title = "High 1", Priority = TodoPriority.High };
-        var highPriorityTodo2 = new TodoItem { Title = "High 2", Priority = TodoPriority.High };
-        var mediumPriorityTodo = new TodoItem { Title = "Medium", Priority = TodoPriority.Medium };
-        var lowPriorityTodo = new TodoItem { Title = "Low", Priority = TodoPriority.Low };
+        var highPriorityTodo1 = new TodoItem { Title = "High 1", Priority = TodoPriority.High, UserId = user.Id };
+        var highPriorityTodo2 = new TodoItem { Title = "High 2", Priority = TodoPriority.High, UserId = user.Id };
+        var mediumPriorityTodo = new TodoItem { Title = "Medium", Priority = TodoPriority.Medium, UserId = user.Id };
+        var lowPriorityTodo = new TodoItem { Title = "Low", Priority = TodoPriority.Low, UserId = user.Id };
 
         db.Todos.AddRange(highPriorityTodo1, highPriorityTodo2, mediumPriorityTodo, lowPriorityTodo);
         await db.SaveChangesAsync();
 
         // Act
-        var highPriority = await db.Todos.Where(t => t.Priority == TodoPriority.High).ToListAsync();
-        var mediumPriority = await db.Todos.Where(t => t.Priority == TodoPriority.Medium).ToListAsync();
-        var lowPriority = await db.Todos.Where(t => t.Priority == TodoPriority.Low).ToListAsync();
+        var highPriority = await db.Todos.Where(t => t.UserId == user.Id && t.Priority == TodoPriority.High).ToListAsync();
+        var mediumPriority = await db.Todos.Where(t => t.UserId == user.Id && t.Priority == TodoPriority.Medium).ToListAsync();
+        var lowPriority = await db.Todos.Where(t => t.UserId == user.Id && t.Priority == TodoPriority.Low).ToListAsync();
 
         // Assert
         highPriority.Should().HaveCount(2);
@@ -327,17 +339,18 @@ public class DatabaseTests : IClassFixture<TodoApiFactory>
         // Arrange
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
-        await ClearDatabase();
+        var user = await _factory.CreateUserAsync();
+        await ClearDatabase(user.Id);
 
-        var mediumTodo = new TodoItem { Title = "Medium", Priority = TodoPriority.Medium };
-        var highTodo = new TodoItem { Title = "High", Priority = TodoPriority.High };
-        var lowTodo = new TodoItem { Title = "Low", Priority = TodoPriority.Low };
+        var mediumTodo = new TodoItem { Title = "Medium", Priority = TodoPriority.Medium, UserId = user.Id };
+        var highTodo = new TodoItem { Title = "High", Priority = TodoPriority.High, UserId = user.Id };
+        var lowTodo = new TodoItem { Title = "Low", Priority = TodoPriority.Low, UserId = user.Id };
 
         db.Todos.AddRange(mediumTodo, highTodo, lowTodo);
         await db.SaveChangesAsync();
 
         // Act
-        var orderedTodos = await db.Todos.OrderBy(t => t.Priority).ToListAsync();
+        var orderedTodos = await db.Todos.Where(t => t.UserId == user.Id).OrderBy(t => t.Priority).ToListAsync();
 
         // Assert
         // Priority is stored as integer in DB, so ordering is logical: Low (1) < Medium (2) < High (3)
@@ -347,11 +360,12 @@ public class DatabaseTests : IClassFixture<TodoApiFactory>
         orderedTodos[2].Priority.Should().Be(TodoPriority.High);
     }
 
-    private async Task ClearDatabase()
+    private async Task ClearDatabase(string userId)
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
-        db.Todos.RemoveRange(db.Todos);
+        var todos = db.Todos.Where(t => t.UserId == userId);
+        db.Todos.RemoveRange(todos);
         await db.SaveChangesAsync();
     }
 }

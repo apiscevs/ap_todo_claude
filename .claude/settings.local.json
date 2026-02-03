@@ -35,7 +35,8 @@
       "Bash(dotnet ef migrations:*)",
       "Bash(dotnet clean:*)",
       "Bash(xargs:*)",
-      "Bash(dotnet ef database update:*)"
+      "Bash(dotnet ef database update:*)",
+      "mcp__playwright__browser_run_code"
     ]
   },
   "enableAllProjectMcpServers": true

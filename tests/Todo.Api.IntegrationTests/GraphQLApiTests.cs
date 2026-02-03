@@ -6,15 +6,28 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Todo.Api.IntegrationTests;
 
-public class GraphQLApiTests : IClassFixture<TodoApiFactory>
+public class GraphQLApiTests : IClassFixture<TodoApiFactory>, IAsyncLifetime
 {
-    private readonly HttpClient _client;
     private readonly TodoApiFactory _factory;
+    private HttpClient _client = null!;
+    private string _userId = string.Empty;
 
     public GraphQLApiTests(TodoApiFactory factory)
     {
         _factory = factory;
-        _client = factory.CreateClient();
+    }
+
+    public async Task InitializeAsync()
+    {
+        var session = await _factory.CreateAuthenticatedClientAsync();
+        _client = session.Client;
+        _userId = session.UserId;
+    }
+
+    public Task DisposeAsync()
+    {
+        _client.Dispose();
+        return Task.CompletedTask;
     }
 
     [Fact]
@@ -438,7 +451,7 @@ public class GraphQLApiTests : IClassFixture<TodoApiFactory>
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
-        var todo = new TodoItem { Title = title, Priority = priority };
+        var todo = new TodoItem { Title = title, Priority = priority, UserId = _userId };
         db.Todos.Add(todo);
         await db.SaveChangesAsync();
         return todo.Id;
@@ -448,7 +461,8 @@ public class GraphQLApiTests : IClassFixture<TodoApiFactory>
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
-        db.Todos.RemoveRange(db.Todos);
+        var todos = db.Todos.Where(t => t.UserId == _userId);
+        db.Todos.RemoveRange(todos);
         await db.SaveChangesAsync();
     }
 }
